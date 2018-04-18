@@ -1,19 +1,19 @@
-import json
-import time
 import argparse
-import os
 import datetime
+import json
+import os
+import time
 from os import path
+
 import numpy as np
 import torch
-from torch import autograd, optim, nn
+from torch import optim
 from torch.autograd import Variable
-import torch.nn.functional as F
 
-import nets
-import sampling
-import rewards_lib
 import alive_sieve
+import nets
+import rewards_lib
+import sampling
 
 
 def render_action(t, s, prop, term):

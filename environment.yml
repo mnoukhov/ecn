@@ -1,0 +1,9 @@
+name: comm
+channels:
+- pytorch
+- defaults
+dependencies:
+- python=3
+- pytorch-cpu=0.3
+- torchvision
+- numpy
