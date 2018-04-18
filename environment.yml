@@ -1,9 +1,9 @@
-name: comm
+name: emerge
 channels:
 - pytorch
 - defaults
 dependencies:
-- python=3
-- pytorch-cpu=0.3
+- python=3.6
+- pytorch
 - torchvision
-- numpy
+- cuda91
