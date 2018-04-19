@@ -405,6 +405,14 @@ def run(args):
             last_save = time.time()
 
         episode += 1
+
+    save_model(
+        model_file=args.model_file,
+        agent_models=agent_models,
+        agent_opts=agent_opts,
+        start_time=start_time,
+        episode=episode)
+    print('saved model')
     f_log.close()
 
 
