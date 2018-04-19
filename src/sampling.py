@@ -6,8 +6,16 @@ def sample_items(batch_size, num_values=6, seq_len=3, random_state=np.random):
     """
     num_values 6 will give possible values: 0,1,2,3,4,5
     """
-    pool = torch.from_numpy(random_state.choice(num_values, (batch_size, seq_len), replace=True))
-    return pool
+    pool = np.zeros((batch_size, seq_len), dtype=np.int64)
+    zero_pool = [0]*seq_len
+    num_zeros = batch_size
+    #find batches with all 0s and regenerate
+    while num_zeros > 0:
+        zero_idxs = (pool == zero_pool)[:,0]
+        num_zeros = np.count_nonzero(zero_idxs)
+        pool[zero_idxs] = random_state.choice(num_values, (num_zeros, seq_len), replace=True)
+
+    return torch.from_numpy(pool)
 
 
 def sample_utility(batch_size, num_values=6, seq_len=3, random_state=np.random):

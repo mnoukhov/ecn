@@ -53,8 +53,10 @@ def calc_rewards(t, s, term, enable_cuda):
         # we always calculate the prosocial reward
         actual_prosocial = raw_rewards[b].sum()
         available_prosocial = torch.dot(max_utility[b], pool[b])
-        if available_prosocial != 0:
-            rewards_batch[b][2] = actual_prosocial / available_prosocial
+        if available_prosocial == 0:
+            raise ValueError('either pool or max utility is all 0')
+
+        rewards_batch[b][2] = actual_prosocial / available_prosocial
 
         for i in range(2):
             max_agent = torch.dot(utilities[b, i], pool[b])
