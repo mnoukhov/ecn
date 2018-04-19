@@ -1,5 +1,6 @@
 import torch
-import alive_sieve
+
+from src import alive_sieve
 
 
 def test_alive_sieve_init():

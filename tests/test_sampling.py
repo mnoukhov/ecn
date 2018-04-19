@@ -2,9 +2,10 @@
 These are not really unit-tests as such, since they need manual inspection. but it's a convenient
 place to store these functions that faciliate manual inspection
 """
-import sampling
 import torch
 import numpy as np
+
+from src import sampling
 
 
 def test_generate_test_batches():

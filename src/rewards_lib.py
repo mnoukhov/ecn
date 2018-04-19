@@ -41,9 +41,10 @@ def calc_rewards(t, s, term, enable_cuda):
     proposal = type_constr.FloatTensor(batch_size, 2, 3).fill_(0)
     proposal[:, proposer] = last_proposal
     proposal[:, accepter] = pool - last_proposal
+    # max of all agents' utility for an item
     max_utility, _ = utilities.max(1)
 
-    reward_eligible_idxes = reward_eligible_mask.nonzero().long().view(-1)
+    reward_eligible_idxes = reward_eligible_mask.nonzero().view(-1)
     raw_rewards = type_constr.FloatTensor(batch_size, 2).fill_(0)
     for b in reward_eligible_idxes:
         for i in range(2):

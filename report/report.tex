@@ -104,11 +104,31 @@ described by some "game." This game can be one of
 \subsection{Emergent Communication Through Negotation}%
 \label{sub:emergent_communication_through_negotation}
 
-\subsection{Criticism}%
-\label{sub:criticism}
+\subsection{Utility }%
+\label{sub:utility_}
 
-\section{Exploratory Experiments}%
+
+
+\section{Exploratory Extensions}%
 \label{sec:exploratory_experiments}
+
+\subsection{Utility Sampling}%
+\label{sub:utility_sampling}
+A negotiation game is not interesting if the interests of the two parties do not
+clash. One consequence of randomly sampling utilities is that there is no
+guarantee on the clash of utilities in negotation as the players could have
+non-zero utility only for the items that their opponent has zero utility and
+negotiation is simplified. To combat this issue, it is proposed to guaranteee
+non-zero utility to every item.
+
+Another issue is that in the social case, one player's utilities could dominate
+the other's $u_j^1 > u_j^2 \forall j$. In such a case, the optimal strategy for
+both players is to give all items to the player with the dominating utility, and
+again the player. The final split is therefore pareto optimal, but doesn't feel
+"fair" for the side of the dominated player. A similar situation for a selfish
+agent would generally lead to a more even split with a smaller total reward. For
+this reason, we can experiment with avoiding domination situations by
+normalizing the utilities so that each agents utilities all sum to 15.
 
 \section{Iterative Negotation}%
 \label{sec:iterative_negotation}
@@ -127,7 +147,7 @@ acknowledgments in the anonymized submission, only in the final paper.
 
 \section*{References}
 
-\bibliography{iter-comm}
+\bibliography{report}
 \bibliographystyle{plain}
 
 \end{document}

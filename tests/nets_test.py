@@ -25,8 +25,8 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 import numpy as np
 
-import nets
-import sampling
+from src import nets
+from src import sampling
 
 
 def _test_term_policy(term_entropy_reg, embedding_size, num_values, batch_size):

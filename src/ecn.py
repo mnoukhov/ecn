@@ -406,13 +406,15 @@ def run(args):
 
         episode += 1
 
-    save_model(
-        model_file=args.model_file,
-        agent_models=agent_models,
-        agent_opts=agent_opts,
-        start_time=start_time,
-        episode=episode)
-    print('saved model')
+    if (not args.no_save and
+        not args.testing):
+        save_model(
+            model_file=args.model_file,
+            agent_models=agent_models,
+            agent_opts=agent_opts,
+            start_time=start_time,
+            episode=episode)
+        print('saved model')
     f_log.close()
 
 
@@ -437,6 +439,7 @@ if __name__ == '__main__':
     parser.add_argument('--no-save', action='store_true')
     parser.add_argument('--name', type=str, default='', help='used for logfile naming')
     parser.add_argument('--logfile', type=str, default='logs/log_%Y%m%d_%H%M%S{name}.log')
+    parser.add_argument('--utility-reg', action='store_true')
     args = parser.parse_args()
     args.enable_comms = not args.disable_comms
     args.enable_proposal = not args.disable_proposal
