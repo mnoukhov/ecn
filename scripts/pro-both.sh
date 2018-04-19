@@ -10,9 +10,9 @@ python src/ecn.py \
     --model-file 'model_saves/pro-both.dat' \
     --name 'pro-both' \
     --term-entropy-reg 0.5 \
-    --utterance-entropy-reg 1e-4 \
+    --utterance-entropy-reg 0.0001 \
     --proposal-entropy-reg 0.01 \
     --render-every-seconds 120 \
     --save-every-seconds 360 \
-    --episodes 3e5 \
+    --episodes 300000 \
     $@
