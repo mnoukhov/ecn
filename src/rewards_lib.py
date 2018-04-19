@@ -1,7 +1,7 @@
 import torch
 
 
-def calc_rewards(t, s, term):
+def calc_rewards(t, s, term, enable_cuda):
     # calcualate rewards for any that just finished
     # it will calculate three reward values:
     # agent 1 (as proporition of max agent 1), agent 2 (as proportion of max agent 2), prosocial (as proportion of max prosocial)
@@ -15,7 +15,7 @@ def calc_rewards(t, s, term):
     agent = t % 2
     batch_size = term.size()[0]
     utility = s.utilities[:, agent]
-    type_constr = torch.cuda if s.pool.is_cuda else torch
+    type_constr = torch.cuda if enable_cuda else torch
     rewards_batch = type_constr.FloatTensor(batch_size, 3).fill_(0)  # each row is: {one, two, combined}
     if t == 0:
         # on first timestep theres no actual proposal yet, so score zero if terminate
@@ -35,18 +35,18 @@ def calc_rewards(t, s, term):
 
     proposer = 1 - agent
     accepter = agent
-    proposal = torch.zeros(batch_size, 2, 3).long()
+    proposal = type_constr.zeros(batch_size, 2, 3).long()
     proposal[:, proposer] = s.last_proposal
     proposal[:, accepter] = s.pool - s.last_proposal
     max_utility, _ = s.utilities.max(1)
 
     reward_eligible_idxes = reward_eligible_mask.nonzero().long().view(-1)
     for b in reward_eligible_idxes:
-        raw_rewards = torch.FloatTensor(2).fill_(0)
+        raw_rewards = type_constr.FloatTensor(2).fill_(0)
         for i in range(2):
             raw_rewards[i] = s.utilities[b, i].cpu().dot(proposal[b, i].cpu())
 
-        scaled_rewards = torch.FloatTensor(3).fill_(0)
+        scaled_rewards = type_constr.FloatTensor(3).fill_(0)
 
         # we always calculate the prosocial reward
         actual_prosocial = raw_rewards.sum()

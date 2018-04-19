@@ -176,7 +176,8 @@ def run_episode(
         new_rewards = calc_rewards(
             t=t,
             s=s,
-            term=term_a
+            term=term_a,
+            enable_cuda=args.enable_cuda
         )
         rewards[sieve.out_idxes] = new_rewards
         s.last_proposal = this_proposal
