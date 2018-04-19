@@ -8,7 +8,8 @@ export PYTHONPATH=$PROJECTROOT:$PYTHONPATH
 python src/ecn.py \
     --enable-cuda \
     --model-file 'model_saves/pro-both.dat' \
-    --name 'pro-both' \
+    --name 'pro-ling' \
+    --disable-proposal \
     --term-entropy-reg 0.5 \
     --utterance-entropy-reg 1e-4 \
     --proposal-entropy-reg 0.01 \
