@@ -14,7 +14,6 @@ def calc_rewards(t, s, term, enable_cuda):
 
     agent = t % 2
     batch_size = term.size()[0]
-    utility = s.utilities[:, agent]
     type_constr = torch.cuda if enable_cuda else torch
     rewards_batch = type_constr.FloatTensor(batch_size, 3).fill_(0)  # each row is: {one, two, combined}
     if t == 0:
@@ -33,31 +32,32 @@ def calc_rewards(t, s, term, enable_cuda):
             # all eligible ones exceeded pool
             return rewards_batch
 
+    pool = s.pool.float()
+    last_proposal = s.last_proposal.float()
+    utilities = s.utilities.float()
+
     proposer = 1 - agent
     accepter = agent
-    proposal = type_constr.zeros(batch_size, 2, 3).long()
-    proposal[:, proposer] = s.last_proposal
-    proposal[:, accepter] = s.pool - s.last_proposal
-    max_utility, _ = s.utilities.max(1)
+    proposal = type_constr.FloatTensor(batch_size, 2, 3).fill_(0)
+    proposal[:, proposer] = last_proposal
+    proposal[:, accepter] = pool - last_proposal
+    max_utility, _ = utilities.max(1)
 
     reward_eligible_idxes = reward_eligible_mask.nonzero().long().view(-1)
+    raw_rewards = type_constr.FloatTensor(batch_size, 2).fill_(0)
     for b in reward_eligible_idxes:
-        raw_rewards = type_constr.FloatTensor(2).fill_(0)
         for i in range(2):
-            raw_rewards[i] = s.utilities[b, i].cpu().dot(proposal[b, i].cpu())
-
-        scaled_rewards = type_constr.FloatTensor(3).fill_(0)
+            raw_rewards[b][i] = torch.dot(utilities[b, i], proposal[b, i])
 
         # we always calculate the prosocial reward
-        actual_prosocial = raw_rewards.sum()
-        available_prosocial = max_utility[b].cpu().dot(s.pool[b].cpu())
+        actual_prosocial = raw_rewards[b].sum()
+        available_prosocial = torch.dot(max_utility[b], pool[b])
         if available_prosocial != 0:
-            scaled_rewards[2] = actual_prosocial / available_prosocial
+            rewards_batch[b][2] = actual_prosocial / available_prosocial
 
         for i in range(2):
-            max_agent = s.utilities[b, i].cpu().dot(s.pool[b].cpu())
+            max_agent = torch.dot(utilities[b, i], pool[b])
             if max_agent != 0:
-                scaled_rewards[i] = raw_rewards[i] / max_agent
+                rewards_batch[b][i] = raw_rewards[b][i] / max_agent
 
-        rewards_batch[b] = scaled_rewards
     return rewards_batch
