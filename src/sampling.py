@@ -2,27 +2,41 @@ import torch
 import numpy as np
 
 
-def sample_items(batch_size, num_values=6, seq_len=3, random_state=np.random):
+ITEM_QUANTITY_MAX = 6
+ITEM_UTILITY_MAX = 11
+
+def sample_items(batch_size, num_values=ITEM_QUANTITY_MAX, seq_len=3, random_state=np.random):
     """
     num_values 6 will give possible values: 0,1,2,3,4,5
     """
     pool = np.zeros((batch_size, seq_len), dtype=np.int64)
     zero_pool = [0]*seq_len
+    zero_idxs = np.arange(batch_size)
     num_zeros = batch_size
     #find batches with all 0s and regenerate
     while num_zeros > 0:
+        pool[zero_idxs] = random_state.choice(num_values, (num_zeros, seq_len), replace=True)
         zero_idxs = (pool == zero_pool)[:,0]
         num_zeros = np.count_nonzero(zero_idxs)
-        pool[zero_idxs] = random_state.choice(num_values, (num_zeros, seq_len), replace=True)
 
     return torch.from_numpy(pool)
 
 
-def sample_utility(batch_size, num_values=6, seq_len=3, random_state=np.random):
-    u = torch.zeros(seq_len).long()
-    while u.sum() == 0:
-        u = torch.from_numpy(random_state.choice(num_values, (batch_size, seq_len), replace=True))
-    return u
+def sample_utility(batch_size, num_values=ITEM_UTILITY_MAX, seq_len=3, random_state=np.random, normalize=False):
+    util = np.zeros((batch_size, seq_len), dtype=np.int64)
+    if not normalize:
+        zero_util = [0]*seq_len
+        zero_idxs = np.arange(batch_size)
+        num_zeros = batch_size
+        #find batches with all 0s and regenerate
+        while num_zeros > 0:
+            util[zero_idxs] = random_state.choice(num_values, (num_zeros, seq_len), replace=True)
+            zero_idxs = (util == zero_util)[:,0]
+            num_zeros = np.count_nonzero(zero_idxs)
+    else:
+        raise NotImplementedError
+
+    return torch.from_numpy(util)
 
 
 def sample_N(batch_size, random_state=np.random):
