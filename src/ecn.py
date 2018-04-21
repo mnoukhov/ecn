@@ -94,15 +94,16 @@ class State(object):
 
 
 def run_episode(
-        batch,
-        enable_cuda,
-        enable_comms,
-        enable_proposal,
-        prosocial,
-        agent_models,
-        # batch_size,
-        testing,
-        render=False):
+    batch,
+    enable_cuda,
+    enable_comms,
+    enable_proposal,
+    enable_opponent_utility,
+    prosocial,
+    agent_models,
+    # batch_size,
+    testing,
+    render=False):
     """
     turning testing on means, we disable stochasticity: always pick the argmax
     """
@@ -144,20 +145,33 @@ def run_episode(
             # we dont strictly need to blank them, since they'll be all zeros anyway,
             # but defense in depth and all that :)
             _prev_message = type_constr.LongTensor(sieve.batch_size, 6).fill_(0)
+
         if enable_proposal:
             _prev_proposal = s.last_proposal
         else:
             # we do need to blank this one though :)
             _prev_proposal = type_constr.LongTensor(sieve.batch_size, 3).fill_(0)
-        nodes, term_a, s.m_prev, this_proposal, _entropy_loss, \
-                _term_matches_argmax_count, _utt_matches_argmax_count, _utt_stochastic_draws, \
-                _prop_matches_argmax_count, _prop_stochastic_draws = agent_model(
-            pool=Variable(s.pool),
-            utility=Variable(s.utilities[:, agent]),
-            m_prev=Variable(s.m_prev),
-            prev_proposal=Variable(_prev_proposal),
-            testing=testing
-        )
+
+        _utility = s.utilities[:, agent]
+        if enable_opponent_utility == 0 and agent == 0:
+            # agent 0 sees agent 1 utility
+            _utility = torch.cat([_utility, s.utilities[:, 1 - agent]], 1)
+        elif enable_opponent_utility == 1 and agent == 1:
+            # agent 1 sees agent 0 _utility
+            _utility = torch.cat([_utility, s.utilities[:, 1 - agent]], 1)
+        elif enable_opponent_utility == 2:
+            # both agents see each other's _utility
+            _utility = torch.cat([_utility, s.utilities[:, 1 - agent]], 1)
+
+        (nodes, term_a, s.m_prev, this_proposal, _entropy_loss,
+         _term_matches_argmax_count, _utt_matches_argmax_count, _utt_stochastic_draws,
+         _prop_matches_argmax_count, _prop_stochastic_draws) = agent_model(
+             pool=Variable(s.pool),
+             utility=Variable(_utility),
+             m_prev=Variable(s.m_prev),
+             prev_proposal=Variable(_prev_proposal),
+             testing=testing,
+         )
         entropy_loss_by_agent[agent] += _entropy_loss
         actions_by_timestep.append(nodes)
         term_matches_argmax_count += _term_matches_argmax_count
@@ -284,18 +298,19 @@ def run(args):
         render = time.time() - last_print >= args.render_every_seconds
         # render = True
         batch = generate_training_batch(batch_size=args.batch_size, test_hashes=test_hashes, random_state=train_r)
-        actions, rewards, steps, alive_masks, entropy_loss_by_agent, \
-                _term_matches_argmax_count, _num_policy_runs, _utt_matches_argmax_count, _utt_stochastic_draws, \
-                _prop_matches_argmax_count, _prop_stochastic_draws = run_episode(
-            batch=batch,
-            enable_cuda=args.enable_cuda,
-            enable_comms=args.enable_comms,
-            enable_proposal=args.enable_proposal,
-            agent_models=agent_models,
-            prosocial=args.prosocial,
-            # batch_size=batch_size,
-            render=render,
-            testing=args.testing)
+        (actions, rewards, steps, alive_masks, entropy_loss_by_agent,
+         _term_matches_argmax_count, _num_policy_runs, _utt_matches_argmax_count, _utt_stochastic_draws,
+         _prop_matches_argmax_count, _prop_stochastic_draws) = run_episode(
+             batch=batch,
+             enable_cuda=args.enable_cuda,
+             enable_comms=args.enable_comms,
+             enable_proposal=args.enable_proposal,
+             enable_opponent_utility=args.enable_opponent_utility,
+             agent_models=agent_models,
+             prosocial=args.prosocial,
+             # batch_size=batch_size,
+             render=render,
+             testing=args.testing)
         term_matches_argmax_count += _term_matches_argmax_count
         utt_matches_argmax_count += _utt_matches_argmax_count
         utt_stochastic_draws += _utt_stochastic_draws
@@ -339,21 +354,23 @@ def run(args):
             """
             run the test batches, print the results
             """
-            test_rewards_sum = 0
+            test_rewards_sum = np.zeros(3)
+            test_count_sum = len(test_batches) * args.batch_size
             for test_batch in test_batches:
-                actions, test_rewards, steps, alive_masks, entropy_loss_by_agent, \
-                        _term_matches_argmax_count, _num_policy_runs, _utt_matches_argmax_count, _utt_stochastic_draws, \
-                        _prop_matches_argmax_count, _prop_stochastic_draws = run_episode(
-                    batch=test_batch,
-                    enable_cuda=args.enable_cuda,
-                    enable_comms=args.enable_comms,
-                    enable_proposal=args.enable_proposal,
-                    agent_models=agent_models,
-                    prosocial=args.prosocial,
-                    render=True,
-                    testing=True)
-                test_rewards_sum += test_rewards[:, 2].mean()
-            print('test reward=%.3f' % (test_rewards_sum / len(test_batches)))
+                (actions, test_rewards, steps, alive_masks, entropy_loss_by_agent,
+                 _term_matches_argmax_count, _num_policy_runs, _utt_matches_argmax_count, _utt_stochastic_draws,
+                 _prop_matches_argmax_count, _prop_stochastic_draws) = run_episode(
+                     batch=test_batch,
+                     enable_cuda=args.enable_cuda,
+                     enable_comms=args.enable_comms,
+                     enable_proposal=args.enable_proposal,
+                     enable_opponent_utility=args.enable_opponent_utility,
+                     agent_models=agent_models,
+                     prosocial=args.prosocial,
+                     render=True,
+                     testing=True)
+                test_rewards_sum += test_rewards.sum(0)
+            print('test reward=%.3f' % (test_rewards_sum[2] / test_count_sum))
 
             time_since_last = time.time() - last_print
             if args.prosocial:
@@ -374,8 +391,12 @@ def run(args):
             ))
             f_log.write(json.dumps({
                 'episode': episode,
+                'avg_reward_A': rewards_sum[0] / count_sum,
+                'avg_reward_B': rewards_sum[1] / count_sum,
                 'avg_reward_0': rewards_sum[2] / count_sum,
-                'test_reward': test_rewards_sum / len(test_batches),
+                'test_reward_A': test_rewards_sum[0] / test_count_sum,
+                'test_reward_B': test_rewards_sum[1] / test_count_sum,
+                'test_reward': test_rewards_sum[2] / test_count_sum,
                 'avg_steps': steps_sum / count_sum,
                 'games_sec': count_sum / time_since_last,
                 'elapsed': time.time() - start_time,
@@ -433,6 +454,7 @@ if __name__ == '__main__':
     parser.add_argument('--disable-proposal', action='store_true')
     parser.add_argument('--disable-comms', action='store_true')
     parser.add_argument('--disable-prosocial', action='store_true')
+    parser.add_argument('--enable-opponent-utility', type=int, default=-1)
     parser.add_argument('--render-every-seconds', type=int, default=30)
     parser.add_argument('--save-every-seconds', type=int, default=30)
     parser.add_argument('--testing', action='store_true', help='turn off learning; always pick argmax')

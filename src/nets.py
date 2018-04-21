@@ -201,6 +201,7 @@ class AgentModel(nn.Module):
         self.embedding_size = embedding_size
         self.enable_comms = enable_comms
         self.enable_proposal = enable_proposal
+        #TODO move embedding out of this?
         self.context_net = NumberSequenceEncoder(num_values=6)
         self.utterance_net = NumberSequenceEncoder(num_values=UTT_VOCAB_SIZE)
         self.proposal_net = NumberSequenceEncoder(num_values=6)
