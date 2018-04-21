@@ -6,7 +6,6 @@ import torch.nn.functional as F
 from src.params import (UTT_VOCAB_SIZE,
                         UTT_MAX_LEN)
 
-#TODO switch to LSTM from cell
 
 class NumberSequenceEncoder(nn.Module):
     def __init__(self, num_values, embedding_size=100):
@@ -18,24 +17,17 @@ class NumberSequenceEncoder(nn.Module):
         self.embedding_size = embedding_size
         self.num_values = num_values
         self.embedding = nn.Embedding(num_values, embedding_size)
-        self.lstm = nn.LSTMCell(
+        self.lstm = nn.LSTM(
             input_size=embedding_size,
-            hidden_size=embedding_size)
-        self.zero_state = None
+            hidden_size=embedding_size,
+            num_layers=1
+        )
 
     def forward(self, x):
-        batch_size = x.size()[0]
-        seq_len = x.size()[1]
         x = x.transpose(0, 1)
         x = self.embedding(x)
-        type_constr = torch.cuda if x.is_cuda else torch
-        state = (
-                Variable(type_constr.FloatTensor(batch_size, self.embedding_size).fill_(0)),
-                Variable(type_constr.FloatTensor(batch_size, self.embedding_size).fill_(0))
-            )
-        for s in range(seq_len):
-            state = self.lstm(x[s], state)
-        return state[0]
+        output, _ = self.lstm(x)
+        return output[-1]
 
 
 class CombinedNet(nn.Module):

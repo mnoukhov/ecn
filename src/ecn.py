@@ -18,7 +18,9 @@ from src.sampling import (generate_test_batches,
                           hash_batches)
 from src.params import UTT_MAX_LEN
 
-#TODO make utility channel
+#TODO
+# make utility channel
+# test/save every episode
 
 def render_action(t, s, prop, term):
     agent = t % 2
