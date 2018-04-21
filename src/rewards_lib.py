@@ -1,5 +1,7 @@
 import torch
 
+#TODO
+# measure selfish reward correctly
 
 def calc_rewards(t, s, term, enable_cuda):
     # calcualate rewards for any that just finished

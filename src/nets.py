@@ -3,6 +3,10 @@ from torch import nn, autograd
 from torch.autograd import Variable
 import torch.nn.functional as F
 
+from src.params import (UTT_VOCAB_SIZE,
+                        UTT_MAX_LEN)
+
+#TODO switch to LSTM from cell
 
 class NumberSequenceEncoder(nn.Module):
     def __init__(self, num_values, embedding_size=100):
@@ -198,7 +202,7 @@ class AgentModel(nn.Module):
         self.enable_comms = enable_comms
         self.enable_proposal = enable_proposal
         self.context_net = NumberSequenceEncoder(num_values=6)
-        self.utterance_net = NumberSequenceEncoder(num_values=10)
+        self.utterance_net = NumberSequenceEncoder(num_values=UTT_VOCAB_SIZE)
         self.proposal_net = NumberSequenceEncoder(num_values=6)
         self.proposal_net.embedding = self.context_net.embedding
 

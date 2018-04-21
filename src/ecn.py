@@ -16,7 +16,9 @@ from src.rewards_lib import calc_rewards
 from src.sampling import (generate_test_batches,
                           generate_training_batch,
                           hash_batches)
+from src.params import UTT_MAX_LEN
 
+#TODO make utility channel
 
 def render_action(t, s, prop, term):
     agent = t % 2
@@ -74,7 +76,7 @@ class State(object):
         self.utilities[:, 1] = utilities[1]
 
         self.last_proposal = torch.zeros(batch_size, 3).long()
-        self.m_prev = torch.zeros(batch_size, 6).long()
+        self.m_prev = torch.zeros(batch_size, UTT_MAX_LEN).long()
 
     def cuda(self):
         self.N = self.N.cuda()

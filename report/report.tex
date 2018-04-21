@@ -98,24 +98,117 @@ described by some "game." This game can be one of
 \section{Related Work}%
 \label{sec:related_work}
 
-\section{Reproduction}%
+\section{Reproduction and Criticism}%
 \label{sec:reproduction}
 
-\subsection{Emergent Communication Through Negotation}%
-\label{sub:emergent_communication_through_negotation}
+\subsection{Reproduction}%
+\label{sub:reproduction}
+The reproduction code is an extension of Hugh Perkins' attempt at reproducing
+the paper \url{https://github.com/ASAPPinc/emergent_comms_negotiation} with
+many notable fixes and extensions. The paper itself is relatively reproducible
+with strong prosocial agent results especially along the linguistic channel
+and weaker non-linguistic
 
-\subsection{Utility }%
-\label{sub:utility_}
+\subsection{Criticism}%
+\label{sub:criticism}
 
+Though the paper is quite good, there are still questions and issues that can be
+raised.
+
+\subsection{Prosocial Agents Don't Negotiate}%
+\label{sub:prosocial_agents_don_t_negotiate}
+A negotiation game where the interests of two parties do not clash is not as
+much about negotiation as it is just sharing preferences and calculating the
+optimum. This is exactly what is seen in case of prosocial agents with only a
+linguistic channel: one agent communicates their preferences and the other
+agent finds the optimal division and proposes it. In this way, the goal and even
+the whole task is completely different for prosocial agents compared to selfish
+agents whose selfish opponents do not have their best interests in mind. In this
+way, selfish agents have no incentive to communicate their preferences as it
+could potentially weaken their negotiating ability. In this way, we see that it
+is not selfish agents failing to learn to communicate but learning to not
+communicate not because they are selfish but because the situation does not
+incentivise them to in a one-shot environment.
+
+
+\subsection{Unmotivated Agents}%
+\label{sub:unmotivated_agents}
+The paper and unfinished repository both allow for sampling situations that give
+no possible reward to an agent, either through sampling a pool with 0 objects of
+any kind or sampling a utility for an agent such that there are no object for
+which they have non-zero utility (e.g. [1,0,1]). In this case, any agent will
+theoretically accept any opponent's offer but their reward will be $\frac{0}{0}$
+and so pose an issue for calculating the fraction of possible reward which the
+paper uses as a metric.
+
+\subsection{Fractional Reward is Biased}%
+\label{sub:fractional_reward_is_biased}
+The metric used by the paper "fraction of joint reward" compares the reward
+achieved by each agent (utility over the accepted proposal $u_i \cdot P$) with
+the total reward possible. In the case of prosocial
+agents the metric measures the optimality as both agents' rewards are the same (
+an equally weighted sum of their individual rewards) and they seek to optimize
+the total possible reward.
+
+\begin{equation}
+    FR_{\text{prosocial}} = \frac{u_A \cdot P + u_B \cdot P}{\max_P u_A \cdot P + u_B \cdot P}
+\end{equation}
+
+But in the case of selfish agents, the total possible reward is the not the
+objective the agent is optimizing. The agents optimize their own reward and
+using the total possible reward metric is therefore a bad way of judging
+performance. Instead, you could measure how well each agent does at maximizing
+their own reward, average across agents, and divide by the total possible reward
+
+\begin{equation}
+    FR_{\text{selfish}} = 0.5 * \frac{u_A \cdot P}{\max_P u_A \cdot P} + 0.5 * \frac{u_B \cdot P}{\max_P u_B \cdot P}
+\end{equation}
+
+But this is also wrong because the maximum possible reward for one agent will
+usually decrease the reward for the opponent. In this way, the only situation where
+$FR_{\text{selfish}} = 1$ is possible is if there do not exist any items for
+which both agents have a non-zero utility. Since this situation is quite rare
+(the whole point of negotiation is to resolve conflicting preferences) this
+metric is unfair to selfish agents by usually being lower than for prosocial
+agents and artificially makes them appear worse. Total possible reward is
+therefore a bad metric for selfish agents and it is not conclusive that their
+performance is worse.
 
 
 \section{Exploratory Extensions}%
 \label{sec:exploratory_experiments}
 
+\subsection{Utility Channel}%
+\label{sub:preferences_channel}
+One way to test whether selfish agents are learning to communicate or whether
+they are specifically learning not to communicate is to give their opponents
+full information of their preferences and see whether they achieve better
+results. To this end, we add the opponent's utility as a separate communication
+channel.
+
+\subsection{Equitable Reward Metric}%
+\label{sub:equitable_reward_metric}
+Since fractional reward is biased as explained in
+\ref{sub:fractional_reward_is_biased}, a better metric for selfish agents is
+proposed to measure the performance of their negotiation: equitable reward.
+Since each agent's preferences may be at odds with the other, it is better to
+measure the agents' performances taking into account a comparison of their
+respective utilities. We consider optimality if each agent recieves a proportion
+of the items in the pool corresponding to the fraction of their utility over
+their utility and their opponents. Essentially, if each agent recieves items
+according to how much they care about them.
+
+\begin{equation}
+    ER_{\text{selfish}} = \frac{u_A \cdot P}{\frac{u_A}{u_A + u_B} \cdot P}
+\end{equation}
+
+Since for any given $P$ for selfish agents, $ER(A) = 1 - ER(B)$, we want to just
+measure the optimality
+
+
 \subsection{Utility Sampling}%
 \label{sub:utility_sampling}
-A negotiation game is not interesting if the interests of the two parties do not
-clash. One consequence of randomly sampling utilities is that there is no
+One consequence of randomly sampling utilities is that there is no
 guarantee on the clash of utilities in negotation as the players could have
 non-zero utility only for the items that their opponent has zero utility and
 negotiation is simplified. To combat this issue, it is proposed to guaranteee
