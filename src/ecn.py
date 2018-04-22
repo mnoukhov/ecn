@@ -1,3 +1,7 @@
+#TODO
+# test/save per episode not
+# centralize args
+
 import argparse
 import datetime
 import json
@@ -16,11 +20,9 @@ from src.rewards_lib import calc_rewards
 from src.sampling import (generate_test_batches,
                           generate_training_batch,
                           hash_batches)
-from src.params import UTT_MAX_LEN
 
-#TODO
-# make utility channel
-# test/save every episode
+utterance_max_length = 6
+
 
 def render_action(t, s, prop, term):
     agent = t % 2
@@ -78,7 +80,7 @@ class State(object):
         self.utilities[:, 1] = utilities[1]
 
         self.last_proposal = torch.zeros(batch_size, 3).long()
-        self.m_prev = torch.zeros(batch_size, UTT_MAX_LEN).long()
+        self.m_prev = torch.zeros(batch_size, utterance_max_length).long()
 
     def cuda(self):
         self.N = self.N.cuda()
@@ -282,12 +284,7 @@ def run(args):
         if not path.isdir(d):
             os.makedirs(d)
     f_log = open(args.logfile, 'w')
-    f_log.write('meta: %s\n' % json.dumps({
-        'enable_proposal': args.enable_proposal,
-        'enable_comms': args.enable_comms,
-        'prosocial': args.prosocial,
-        'seed': args.seed
-    }))
+    f_log.write('meta: %s\n' % json.dumps(args.__dict__))
     last_save = time.time()
     baseline = type_constr.FloatTensor(3).fill_(0)
     term_matches_argmax_count = 0
@@ -340,6 +337,7 @@ def run(args):
                         _reward = _rewards[global_idxes].float().contiguous().view(
                             sieve_playback.batch_size, 1)
                         _reward_loss = - (action * Variable(_reward))
+                        #TODO(overflow?)
                         _reward_loss = _reward_loss.sum()
                         reward_loss_by_agent[agent] += _reward_loss
             for i in range(2):
@@ -456,7 +454,6 @@ if __name__ == '__main__':
     parser.add_argument('--disable-proposal', action='store_true')
     parser.add_argument('--disable-comms', action='store_true')
     parser.add_argument('--disable-prosocial', action='store_true')
-    parser.add_argument('--enable-opponent-utility', type=int, default=-1)
     parser.add_argument('--render-every-seconds', type=int, default=30)
     parser.add_argument('--save-every-seconds', type=int, default=30)
     parser.add_argument('--testing', action='store_true', help='turn off learning; always pick argmax')
@@ -465,7 +462,13 @@ if __name__ == '__main__':
     parser.add_argument('--no-save', action='store_true')
     parser.add_argument('--name', type=str, default='', help='used for logfile naming')
     parser.add_argument('--logfile', type=str, default='logs/log_%Y%m%d_%H%M%S{name}.log')
-    parser.add_argument('--utility-reg', action='store_true')
+    parser.add_argument('--utterance-max-length', type=int, default=6)
+    parser.add_argument('--utterance-vocab-size', type=int, default=11)
+    parser.add_argument('--item-max-quantity', type=int, default=6)
+    parser.add_argument('--item-max-utility', type=int, default=11)
+    # experiments
+    parser.add_argument('--enable-opponent-utility', type=int, default=-1)
+    parser.add_argument('--utility-normalization', action='store_true')
     args = parser.parse_args()
     args.enable_comms = not args.disable_comms
     args.enable_proposal = not args.disable_proposal

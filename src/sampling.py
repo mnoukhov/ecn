@@ -1,11 +1,11 @@
 import torch
 import numpy as np
 
+item_max_quantity = 6
+item_max_utility = 11
 
-ITEM_QUANTITY_MAX = 6
-ITEM_UTILITY_MAX = 11
 
-def sample_items(batch_size, num_values=ITEM_QUANTITY_MAX, seq_len=3, random_state=np.random):
+def sample_items(batch_size, num_values=item_max_quantity, seq_len=3, random_state=np.random):
     """
     num_values 6 will give possible values: 0,1,2,3,4,5
     """
@@ -22,7 +22,7 @@ def sample_items(batch_size, num_values=ITEM_QUANTITY_MAX, seq_len=3, random_sta
     return torch.from_numpy(pool)
 
 
-def sample_utility(batch_size, num_values=ITEM_UTILITY_MAX, seq_len=3, random_state=np.random, normalize=False):
+def sample_utility(batch_size, num_values=item_max_utility, seq_len=3, random_state=np.random, normalize=False):
     util = np.zeros((batch_size, seq_len), dtype=np.int64)
     if not normalize:
         zero_util = [0]*seq_len
@@ -34,7 +34,10 @@ def sample_utility(batch_size, num_values=ITEM_UTILITY_MAX, seq_len=3, random_st
             zero_idxs = (util == zero_util)[:,0]
             num_zeros = np.count_nonzero(zero_idxs)
     else:
-        raise NotImplementedError
+        norm_sum = int(0.5 * num_values * seq_len)
+        util_range = np.arange(1, num_values)
+        util = random_state.choice(util_range, (batch_size, seq_len), replace=True)
+        util = util * norm_sum // np.sum(util, axis=1)
 
     return torch.from_numpy(util)
 

@@ -17,8 +17,21 @@ def plot_reward(logfile, title, min_y, max_y, max_x):
     split_logfiles = logfiles.split(',')
     for j, logfile_groups in enumerate(split_logfiles):
         epoch = []
-        reward = []
-        test_reward = []
+        reward_both = []
+        reward_A = []
+        reward_B = []
+        test_reward_both = []
+        test_reward_A = []
+        test_reward_B = []
+        reward_names = {
+            'train reward both': reward_both,
+            'train reward A': reward_A,
+            'train reward B': reward_B,
+            'test reward both': test_reward_both,
+            'test reward A': test_reward_A,
+            'test reward B': test_reward_B,
+        }
+
         for logfile in logfile_groups.split(':'):
             with open(logfile, 'r') as f:
                 for n, line in enumerate(f):
@@ -32,25 +45,17 @@ def plot_reward(logfile, title, min_y, max_y, max_x):
                     if max_x is not None and d['episode'] > max_x:
                         continue
                     epoch.append(int(d['episode']))
-                    reward.append(float(d['avg_reward_0']))
+                    reward_both.append(float(d['avg_reward_0']))
+                    if 'avg_reward_A' in d:
+                        reward_A.append(float(d['avg_reward_A']))
+                    if 'avg_reward_B' in d:
+                        reward_B.append(float(d['avg_reward_B']))
                     if 'test_reward' in d:
-                        test_reward.append(d['test_reward'])
-        print('epoch[0]', epoch[0], 'epochs[-1]', epoch[-1])
-        while len(epoch) > 200:
-            new_epoch = []
-            new_reward = []
-            new_test_reward = []
-            for n in range(len(epoch) // 2):
-                r = (reward[n * 2] + reward[n * 2 + 1]) / 2
-                e = (epoch[n * 2] + epoch[n * 2 + 1]) // 2
-                new_epoch.append(e)
-                new_reward.append(r)
-                if len(test_reward) > 0:
-                    rt = (test_reward[n * 2] + test_reward[n * 2 + 1]) / 2
-                    new_test_reward.append(rt)
-            epoch = new_epoch
-            reward = new_reward
-            test_reward = new_test_reward
+                        test_reward_both.append(d['test_reward'])
+                    if 'test_reward_A' in d:
+                        test_reward_A.append(float(d['test_reward_A']))
+                    if 'test_reward_B' in d:
+                        test_reward_B.append(float(d['test_reward_B']))
         print('epoch[0]', epoch[0], 'epochs[-1]', epoch[-1])
         if min_y is None:
             min_y = 0
@@ -59,15 +64,15 @@ def plot_reward(logfile, title, min_y, max_y, max_x):
         suffix = ''
         if len(split_logfiles) > 0:
             suffix = ' %s' % (j + 1)
-        if len(test_reward) > 0:
-            plt.plot(np.array(epoch) / 1000, reward, label='train' + suffix)
-            plt.plot(np.array(epoch) / 1000, test_reward, label='test' + suffix)
-        else:
-            plt.plot(np.array(epoch) / 1000, reward, label='reward' + suffix)
+
+        for name, reward in reward_names.items():
+            if reward:
+                plt.plot(np.array(epoch) / 1000, reward, label=name + suffix)
+
     if title is not None:
         plt.title(title)
     plt.xlabel('Episodes of 128 games (thousands)')
-    plt.ylabel('Reward')
+    plt.ylabel('Normalized Reward')
     plt.legend()
     plt.show()
     # plt.savefig('/tmp/out-reward.png')
