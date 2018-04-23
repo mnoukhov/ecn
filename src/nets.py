@@ -3,8 +3,8 @@ from torch import nn, autograd
 from torch.autograd import Variable
 import torch.nn.functional as F
 
-from src.params import (UTT_VOCAB_SIZE,
-                        UTT_MAX_LEN)
+from src.args import (UTT_VOCAB_SIZE,
+                      UTT_MAX_LEN)
 
 
 class NumberSequenceEncoder(nn.Module):

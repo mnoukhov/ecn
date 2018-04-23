@@ -1,6 +1,7 @@
 #TODO
 # test/save per episode not
 # centralize args
+# change everything from long to float
 
 import argparse
 import datetime
@@ -20,9 +21,7 @@ from src.rewards_lib import calc_rewards
 from src.sampling import (generate_test_batches,
                           generate_training_batch,
                           hash_batches)
-
-utterance_max_length = 6
-
+from src.args import UTT_MAX_LEN
 
 def render_action(t, s, prop, term):
     agent = t % 2
@@ -80,7 +79,7 @@ class State(object):
         self.utilities[:, 1] = utilities[1]
 
         self.last_proposal = torch.zeros(batch_size, 3).long()
-        self.m_prev = torch.zeros(batch_size, utterance_max_length).long()
+        self.m_prev = torch.zeros(batch_size, UTT_MAX_LEN).long()
 
     def cuda(self):
         self.N = self.N.cuda()
@@ -440,14 +439,24 @@ def run(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    # game args
+    game_args = parser.add_argument_group('game args')
+    game_args.add_argument('--utterance-max-length', type=int, default=6)
+    game_args.add_argument('--utterance-vocab-size', type=int, default=11)
+    game_args.add_argument('--item-max-quantity', type=int, default=6)
+    game_args.add_argument('--item-max-utility', type=int, default=11)
+    game_args.add_argument('--num-items', type=int, default=11)
+    # model info
     parser.add_argument('--model-file', type=str, default='model_saves/model.dat')
     parser.add_argument('--batch-size', type=int, default=128)
+    parser.add_argument('--seed', type=int, help='optional')
     parser.add_argument('--test-seed', type=int, default=123, help='used for generating test game set')
     parser.add_argument('--episodes', type=int, default=5e5, help='total number of episodes to run')
-    parser.add_argument('--seed', type=int, help='optional')
+    # hyperparams
     parser.add_argument('--term-entropy-reg', type=float, default=0.05)
     parser.add_argument('--utterance-entropy-reg', type=float, default=0.001)
     parser.add_argument('--proposal-entropy-reg', type=float, default=0.05)
+    #game
     parser.add_argument('--disable-proposal', action='store_true')
     parser.add_argument('--disable-comms', action='store_true')
     parser.add_argument('--disable-prosocial', action='store_true')
@@ -459,10 +468,6 @@ if __name__ == '__main__':
     parser.add_argument('--no-save', action='store_true')
     parser.add_argument('--name', type=str, default='', help='used for logfile naming')
     parser.add_argument('--logfile', type=str, default='logs/log_%Y%m%d_%H%M%S{name}.log')
-    parser.add_argument('--utterance-max-length', type=int, default=6)
-    parser.add_argument('--utterance-vocab-size', type=int, default=11)
-    parser.add_argument('--item-max-quantity', type=int, default=6)
-    parser.add_argument('--item-max-utility', type=int, default=11)
     # experiments
     parser.add_argument('--opponent-utility-comms', type=int, default=None)
     parser.add_argument('--utility-normalization', action='store_true')
