@@ -168,7 +168,7 @@ def run_episode(
          _prop_matches_argmax_count, _prop_stochastic_draws) = agent_model(
              pool=Variable(s.pool),
              utility=Variable(s.utilities[:, agent]),
-             m_prev=Variable(s.m_prev),
+             m_prev=Variable(_prev_message),
              prev_proposal=Variable(_prev_proposal),
              testing=testing,
          )
@@ -332,8 +332,8 @@ def run(args):
                         _rewards = rewards_by_agent[agent]
                         _reward = _rewards[global_idxes].float().contiguous().view(
                             sieve_playback.batch_size, 1)
+                        #TODO find overflow
                         _reward_loss = - (action * Variable(_reward))
-                        #TODO(overflow?)
                         _reward_loss = _reward_loss.sum()
                         reward_loss_by_agent[agent] += _reward_loss
             for i in range(2):
