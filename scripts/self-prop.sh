@@ -5,7 +5,7 @@
 
 source ~/.bashrc
 source activate emerge
-export PROJECTROOT="~/iter-comm"
+export PROJECTROOT="$HOME/iter-comm"
 export PYTHONPATH=$PROJECTROOT:$PYTHONPATH
 
 name="self-prop"
