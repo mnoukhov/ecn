@@ -1,4 +1,7 @@
 #!/bin/bash
+#SBATCH --gres=gpu:1
+#SBATCH --mem=4G
+#SBATCH --time=0-10:00
 
 source ~/.bashrc
 source activate emerge
