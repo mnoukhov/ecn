@@ -7,8 +7,6 @@ export PYTHONPATH=$PROJECTROOT:$PYTHONPATH
 
 name="self-opputil$1"
 
-echo $PYTHONPATH
-
 python src/ecn.py \
     --enable-cuda \
     --model-file "model_saves/$name.dat" \

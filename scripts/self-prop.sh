@@ -14,6 +14,8 @@ python src/ecn.py \
     --enable-cuda \
     --model-file "model_saves/$name.dat" \
     --name $name \
+    --selfish \
+    --enable-proposal \
     --disable-comms \
     --term-entropy-reg 0.05 \
     --utterance-entropy-reg 0.0001 \

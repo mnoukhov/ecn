@@ -14,8 +14,10 @@ python src/ecn.py \
     --enable-cuda \
     --model-file "model_saves/$name.dat" \
     --name $name \
-    --disable-comms \
-    --enable-opponent-utility $1 \
+    --prosocial \
+    --enable-proposal \
+    --enable-comms \
+    --comms-opponent-utility $1 \
     --term-entropy-reg 0.5 \
     --utterance-entropy-reg 0.0001 \
     --proposal-entropy-reg 0.01 \
