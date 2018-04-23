@@ -102,7 +102,7 @@ def run_episode(
     enable_cuda,
     enable_comms,
     enable_proposal,
-    enable_opponent_utility,
+    opponent_utility_comms,
     prosocial,
     agent_models,
     # batch_size,
@@ -144,7 +144,15 @@ def run_episode(
 
         agent_model = agent_models[agent]
         if enable_comms:
-            _prev_message = s.m_prev
+            if opponent_utility_comms is None:
+                _prev_message = s.m_prev
+            elif ((opponent_utility_comms == 0 and agent == 0) or
+                  (opponent_utility_comms == 1 and agent == 1) or
+                  (opponent_utility_comms == 2)):
+                # 0: agent 0 sees agent 1 utility
+                # 1: agent 1 sees agent 0 utility
+                # 2: both agents see each other's utility
+                _prev_message = s.utilities[:, 1 - agent]
         else:
             # we dont strictly need to blank them, since they'll be all zeros anyway,
             # but defense in depth and all that :)
@@ -156,22 +164,11 @@ def run_episode(
             # we do need to blank this one though :)
             _prev_proposal = type_constr.LongTensor(sieve.batch_size, 3).fill_(0)
 
-        _utility = s.utilities[:, agent]
-        if enable_opponent_utility == 0 and agent == 0:
-            # agent 0 sees agent 1 utility
-            _utility = torch.cat([_utility, s.utilities[:, 1 - agent]], 1)
-        elif enable_opponent_utility == 1 and agent == 1:
-            # agent 1 sees agent 0 _utility
-            _utility = torch.cat([_utility, s.utilities[:, 1 - agent]], 1)
-        elif enable_opponent_utility == 2:
-            # both agents see each other's _utility
-            _utility = torch.cat([_utility, s.utilities[:, 1 - agent]], 1)
-
         (nodes, term_a, s.m_prev, this_proposal, _entropy_loss,
          _term_matches_argmax_count, _utt_matches_argmax_count, _utt_stochastic_draws,
          _prop_matches_argmax_count, _prop_stochastic_draws) = agent_model(
              pool=Variable(s.pool),
-             utility=Variable(_utility),
+             utility=Variable(s.utilities[:, agent]),
              m_prev=Variable(s.m_prev),
              prev_proposal=Variable(_prev_proposal),
              testing=testing,
@@ -304,7 +301,7 @@ def run(args):
              enable_cuda=args.enable_cuda,
              enable_comms=args.enable_comms,
              enable_proposal=args.enable_proposal,
-             enable_opponent_utility=args.enable_opponent_utility,
+             opponent_utility_comms=args.opponent_utility_comms,
              agent_models=agent_models,
              prosocial=args.prosocial,
              # batch_size=batch_size,
@@ -364,7 +361,7 @@ def run(args):
                      enable_cuda=args.enable_cuda,
                      enable_comms=args.enable_comms,
                      enable_proposal=args.enable_proposal,
-                     enable_opponent_utility=args.enable_opponent_utility,
+                     opponent_utility_comms=args.opponent_utility_comms,
                      agent_models=agent_models,
                      prosocial=args.prosocial,
                      render=True,
@@ -467,7 +464,7 @@ if __name__ == '__main__':
     parser.add_argument('--item-max-quantity', type=int, default=6)
     parser.add_argument('--item-max-utility', type=int, default=11)
     # experiments
-    parser.add_argument('--enable-opponent-utility', type=int, default=-1)
+    parser.add_argument('--opponent-utility-comms', type=int, default=None)
     parser.add_argument('--utility-normalization', action='store_true')
     args = parser.parse_args()
     args.enable_comms = not args.disable_comms

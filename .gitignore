@@ -120,6 +120,7 @@ merge.sh
 *.cb
 *.cb2
 .*.lb
+*.dvi
 
 ## Build tool auxiliary files:
 *.fdb_latexmk

@@ -5,7 +5,7 @@
 % before loading nips_2018
 
 % ready for submission
-\usepackage{nips_2017}
+\usepackage{nips_2018}
 
 % to compile a preprint version, e.g., for submission to arXiv, add
 % add the [preprint] option:
@@ -25,6 +25,10 @@
 \usepackage{amsfonts}       % blackboard math symbols
 \usepackage{nicefrac}       % compact symbols for 1/2, etc.
 \usepackage{microtype}      % microtypography
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\graphicspath{{./img/}}
 
 \title{Iterated Communication Through Negotation}
 
@@ -181,10 +185,33 @@ performance is worse.
 \subsection{Utility Channel}%
 \label{sub:preferences_channel}
 One way to test whether selfish agents are learning to communicate or whether
-they are specifically learning not to communicate is to give their opponents
-full information of their preferences and see whether they achieve better
-results. To this end, we add the opponent's utility as a separate communication
-channel.
+they are specifically learning not to communicate is to simulate what
+information an agent could possibly communicate. Since the prosocial agents
+learn to communicate their hidden utilites, it seems fitting to test if giving
+full information of hidden utilities helps achieve better
+results. To this end, we experiment with giving an agent information about the
+opponent's utility similar to a communication channel. For selfish agents we
+find that an agent tends to dominate its opponent if it knows the opponent's
+preferences, and outcomes are relatively similar if neither agent knows the
+opponent's preferences
+
+\begin{figure}[h]
+    \centering
+    \begin{subfigure}{.5\textwidth}
+    \begin{center}
+        \includegraphics[width=0.9\linewidth]{opp-util-0.png}
+    \end{center}
+    \caption{agent B knows A's utilities}
+    \end{subfigure}%
+    \begin{subfigure}{.5\textwidth}
+    \begin{center}
+        \includegraphics[width=0.9\linewidth]{opp-util-1.png}
+    \end{center}
+    \caption{agent A knows B's utilities}
+    \end{subfigure}
+    \label{fig:self-opp-util}
+    \caption{The agent that knows the other's utilities, dominates}
+\end{figure}
 
 \subsection{Equitable Reward Metric}%
 \label{sub:equitable_reward_metric}
