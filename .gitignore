@@ -121,6 +121,8 @@ merge.sh
 *.cb2
 .*.lb
 *.dvi
+*.bld
+*.bbl
 
 ## Build tool auxiliary files:
 *.fdb_latexmk
