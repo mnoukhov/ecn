@@ -1,3 +1,7 @@
+#TODO
+# create a dataset of utilities + pools instead of generating on the fly?
+# refactor by changing this to classes
+
 import torch
 import numpy as np
 
@@ -5,7 +9,10 @@ item_max_quantity = 6
 item_max_utility = 11
 
 
-def sample_items(batch_size, num_values=item_max_quantity, seq_len=3, random_state=np.random):
+def sample_items(batch_size,
+                 num_values=item_max_quantity,
+                 seq_len=3,
+                 random_state=np.random):
     """
     num_values 6 will give possible values: 0,1,2,3,4,5
     """
@@ -22,7 +29,8 @@ def sample_items(batch_size, num_values=item_max_quantity, seq_len=3, random_sta
     return torch.from_numpy(pool)
 
 
-def sample_utility(batch_size, num_values=item_max_utility, seq_len=3, random_state=np.random, normalize=False):
+def sample_utility(batch_size, num_values=item_max_utility, seq_len=3,
+                   normalize=False, random_state=np.random):
     util = np.zeros((batch_size, seq_len), dtype=np.int64)
     if not normalize:
         zero_util = [0]*seq_len
@@ -50,11 +58,22 @@ def sample_N(batch_size, random_state=np.random):
     return N
 
 
-def generate_batch(batch_size, random_state=np.random):
-    pool = sample_items(batch_size=batch_size, num_values=6, seq_len=3, random_state=random_state)
+def generate_batch(batch_size, normalize_utility=False, random_state=np.random):
+    pool = sample_items(batch_size=batch_size,
+                        num_values=6,
+                        seq_len=3,
+                        random_state=random_state)
     utilities = []
-    utilities.append(sample_utility(batch_size=batch_size, num_values=6, seq_len=3, random_state=random_state))
-    utilities.append(sample_utility(batch_size=batch_size, num_values=6, seq_len=3, random_state=random_state))
+    utilities.append(sample_utility(batch_size=batch_size,
+                                    num_values=6,
+                                    seq_len=3,
+                                    normalize=normalize_utility,
+                                    random_state=random_state))
+    utilities.append(sample_utility(batch_size=batch_size,
+                                    num_values=6,
+                                    seq_len=3,
+                                    normalize=normalize_utility,
+                                    random_state=random_state))
     N = sample_N(batch_size=batch_size, random_state=random_state)
     return {
         'pool': pool,
@@ -63,7 +82,7 @@ def generate_batch(batch_size, random_state=np.random):
     }
 
 
-def generate_test_batches(batch_size, num_batches, random_state):
+def generate_test_batches(batch_size, num_batches, normalize_utility, random_state):
     """
     so, we need:
     - pools
@@ -73,7 +92,9 @@ def generate_test_batches(batch_size, num_batches, random_state):
     # r = np.random.RandomState(seed)
     test_batches = []
     for i in range(num_batches):
-        batch = generate_batch(batch_size=batch_size, random_state=random_state)
+        batch = generate_batch(batch_size=batch_size,
+                               normalize_utility=normalize_utility,
+                               random_state=random_state)
         test_batches.append(batch)
     return test_batches
 
@@ -119,8 +140,14 @@ def overlaps(test_hashes, batch):
     return bool(test_hashes & target_hashes)
 
 
-def generate_training_batch(batch_size, test_hashes, random_state):
+def generate_training_batch(batch_size,
+                            test_hashes,
+                            normalize_utility,
+                            random_state):
     batch = None
     while batch is None or overlaps(test_hashes, batch):
-        batch = generate_batch(batch_size=batch_size, random_state=random_state)
+        batch = generate_batch(batch_size=batch_size,
+                               num
+                               normalize_utility=normalize_utility,
+                               random_state=random_state)
     return batch

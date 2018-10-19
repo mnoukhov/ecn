@@ -242,7 +242,10 @@ def run(args):
         train_r = np.random
 
     test_r = np.random.RandomState(args.test_seed)
-    test_batches = generate_test_batches(batch_size=args.batch_size, num_batches=5, random_state=test_r)
+    test_batches = generate_test_batches(batch_size=args.batch_size,
+                                         num_batches=5,
+                                         normalize_utility=args.normalize_utility,
+                                         random_state=test_r)
     test_hashes = hash_batches(test_batches)
 
     episode = 0
@@ -292,7 +295,10 @@ def run(args):
     while episode < args.episodes:
         render = time.time() - last_print >= args.render_every_seconds
         # render = True
-        batch = generate_training_batch(batch_size=args.batch_size, test_hashes=test_hashes, random_state=train_r)
+        batch = generate_training_batch(batch_size=args.batch_size,
+                                        test_hashes=test_hashes,
+                                        normalize_utility=args.normalize_utility,
+                                        random_state=train_r)
         (actions, rewards, steps, alive_masks, entropy_loss_by_agent,
          _term_matches_argmax_count, _num_policy_runs, _utt_matches_argmax_count, _utt_stochastic_draws,
          _prop_matches_argmax_count, _prop_stochastic_draws) = run_episode(
@@ -445,7 +451,7 @@ if __name__ == '__main__':
     game_args.add_argument('--utterance-vocab-size', type=int, default=11)
     game_args.add_argument('--item-max-quantity', type=int, default=6)
     game_args.add_argument('--item-max-utility', type=int, default=11)
-    game_args.add_argument('--num-items', type=int, default=11)
+    game_args.add_argument('--item-num-types', type=int, default=3) #TODO
 
     # model info
     parser.add_argument('--model-file', type=str, default='model_saves/model.dat')
@@ -482,7 +488,8 @@ if __name__ == '__main__':
 
     # experiments
     parser.add_argument('--comms-opponent-utility', type=int, default=None)
-    parser.add_argument('--utility-normalization', action='store_true')
+    parser.add_argument('--normalize-utility', action='store_true')
+    parser.add_argument('--simul-proposition', action='store_true') #TODO
 
     args = parser.parse_args()
     args.logfile = args.logfile.format(**args.__dict__)
