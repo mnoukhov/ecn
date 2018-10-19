@@ -144,20 +144,24 @@ def run_episode(
         agent = t % 2
 
         agent_model = agent_models[agent]
-        if enable_comms and comms_opponent_utility is None:
-            _prev_message = s.m_prev
-        elif enable_comms and ((comms_opponent_utility == 0 and agent == 0) or
-                               (comms_opponent_utility == 1 and agent == 1) or
-                               (comms_opponent_utility == 2)):
-            # 0: agent 0 sees agent 1 utility
-            # 1: agent 1 sees agent 0 utility
-            # 2: both agents see each other's utility
-            _prev_message = type_constr.LongTensor(sieve.batch_size, 6).fill_(0)
-            _prev_message[:,:3] = s.utilities[:, 1 - agent]
-        else:
+        if not enable_comms:
             # we dont strictly need to blank them, since they'll be all zeros anyway,
             # but defense in depth and all that :)
             _prev_message = type_constr.LongTensor(sieve.batch_size, 6).fill_(0)
+        else:
+            if ((FLAGS.force_utility_comm == 'A' and agent == 0) or
+                (FLAGS.force_utility_comm == 'B' and agent == 1) or
+                (FLAGS.force_utility_comm == 'both')):
+                # 0: agent 0 sees agent 1 utility
+                # 1: agent 1 sees agent 0 utility
+                # 2: both agents see each other's utility
+                _prev_message = type_constr.LongTensor(sieve.batch_size, 6).fill_(0)
+                _prev_message[:,:3] = s.utilities[:, 1 - agent]
+            else:
+                # either force_utility_comm is None
+                # or this agent isn't being forced to communicate its utility
+                _prev_message = s.m_prev
+
 
         if enable_proposal:
             _prev_proposal = s.last_proposal

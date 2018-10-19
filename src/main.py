@@ -17,8 +17,8 @@ flags.DEFINE_integer('item_num_types', 3, 'number of pool item types')
 
 # experiments
 flags.DEFINE_boolean('utility_normalize', False, 'sum of both agents utilities is 0.5*max_utility*num_types')
-flags.DEFINE_boolean('utility_nonzero', False, 'force min utility of 1 for every object') #TODO
-
+flags.DEFINE_boolean('utility_nonzero', False, 'force min utility of 1 for every object')
+flags.DEFINE_enum('force_utility_comm', None, ['A', 'B', 'both'], 'force an agent to communicate its utilities')
 
 
 def parse_flags(argv):
