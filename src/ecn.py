@@ -12,6 +12,7 @@ from os import path
 
 import numpy as np
 import torch
+from absl import flags
 from torch import optim
 from torch.autograd import Variable
 
@@ -21,7 +22,8 @@ from src.rewards_lib import calc_rewards
 from src.sampling import (generate_test_batches,
                           generate_training_batch,
                           hash_batches)
-from src.args import UTT_MAX_LEN
+
+FLAGS = flags.FLAGS
 
 def render_action(t, s, prop, term):
     agent = t % 2
@@ -79,7 +81,7 @@ class State(object):
         self.utilities[:, 1] = utilities[1]
 
         self.last_proposal = torch.zeros(batch_size, 3).long()
-        self.m_prev = torch.zeros(batch_size, UTT_MAX_LEN).long()
+        self.m_prev = torch.zeros(batch_size, FLAGS.utt_max_length).long()
 
     def cuda(self):
         self.N = self.N.cuda()

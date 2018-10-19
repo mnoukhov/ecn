@@ -1,3 +1,7 @@
+#TODO
+# check num_tokens in UtterancePolicy
+
+from absl import flags
 import torch
 from torch import nn, autograd
 from torch.autograd import Variable
@@ -6,6 +10,7 @@ import torch.nn.functional as F
 from src.args import (UTT_VOCAB_SIZE,
                       UTT_MAX_LEN)
 
+FLAGS = flags.FLAGS
 
 class NumberSequenceEncoder(nn.Module):
     def __init__(self, num_values, embedding_size=100):
@@ -71,7 +76,7 @@ class TermPolicy(nn.Module):
 
 
 class UtterancePolicy(nn.Module):
-    def __init__(self, embedding_size=100, num_tokens=10, max_len=6):
+    def __init__(self, embedding_size=100, num_tokens=10, max_len=FLAGS.utt_max_length):
         super().__init__()
         self.embedding_size = embedding_size
         self.num_tokens = num_tokens
@@ -195,7 +200,7 @@ class AgentModel(nn.Module):
         self.enable_proposal = enable_proposal
         #TODO move embedding out of this?
         self.context_net = NumberSequenceEncoder(num_values=6)
-        self.utterance_net = NumberSequenceEncoder(num_values=UTT_VOCAB_SIZE)
+        self.utterance_net = NumberSequenceEncoder(num_values=FLAGS.utt_vocab_size)
         self.proposal_net = NumberSequenceEncoder(num_values=6)
         self.proposal_net.embedding = self.context_net.embedding
 

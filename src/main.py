@@ -1,18 +1,34 @@
-#TODO implement parsing here
-import argparse
+import datetime
 
-ARGS = None
-UTT_VOCAB_SIZE = 11
-UTT_MAX_LEN = 6
+from absl import app
+from absl import flags
+from absl.flags import argparse_flags
 
-def parse_args():
-    parser = argparse.ArgumentParser()
+from ecn import run
+
+FLAGS = flags.FLAGS
+
+# game args
+flags.DEFINE_integer('utt_max_length', 6, 'max length of an utterance')
+flags.DEFINE_integer('utt_vocab_size', 11, 'size of utterance vocab')
+flags.DEFINE_integer('item_max_quantity', 6, 'max + 1 quantity of pool item')
+flags.DEFINE_integer('item_max_utility', 6, 'max + 1 utility of pool item')
+flags.DEFINE_integer('item_num_types', 3, 'number of pool item types')
+
+# experiments
+flags.DEFINE_boolean('utility_normalize', False, 'sum of both agents utilities is 0.5*max_utility*num_types')
+flags.DEFINE_boolean('utility_nonzero', False, 'force min utility of 1 for every object') #TODO
+
+
+
+def parse_flags(argv):
+    parser = argparse_flags.ArgumentParser()
     # game args
-    game_args = parser.add_argument_group('game args')
-    game_args.add_argument('--utterance-max-length', type=int, default=6)
-    game_args.add_argument('--utterance-vocab-size', type=int, default=11)
-    game_args.add_argument('--item-max-quantity', type=int, default=6)
-    game_args.add_argument('--item-max-utility', type=int, default=11)
+    # game_args = parser.add_argument_group('game args')
+    # game_args.add_argument('--utterance-max-length', type=int, default=6)
+    # game_args.add_argument('--utterance-vocab-size', type=int, default=11)
+    # game_args.add_argument('--item-max-quantity', type=int, default=6)
+    # game_args.add_argument('--item-max-utility', type=int, default=11)
     # model info
     parser.add_argument('--model-file', type=str, default='model_saves/model.dat')
     parser.add_argument('--batch-size', type=int, default=128)
@@ -49,5 +65,7 @@ def parse_args():
     del args.__dict__['disable_prosocial']
     del args.__dict__['name']
 
-    global ARGS
-    ARGS = args
+    return args
+
+if __name__ == '__main__':
+    app.run(run, flags_parser=parse_flags)
