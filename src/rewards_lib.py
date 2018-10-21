@@ -6,7 +6,10 @@ import torch
 def calc_rewards(t, s, term, enable_cuda):
     # calcualate rewards for any that just finished
     # it will calculate three reward values:
-    # agent 1 (as proporition of max agent 1), agent 2 (as proportion of max agent 2), prosocial (as proportion of max prosocial)
+    # - agent 1 (as % of its max),
+    # - agent 2 (as % of its max),
+    # - prosocial (as % of max agent 1 + 2)
+
     # in the non-prosocial setting, we need all three:
     # - first two for training
     # - next one for evaluating Table 1, in the paper
@@ -17,7 +20,7 @@ def calc_rewards(t, s, term, enable_cuda):
     agent = t % 2
     batch_size = term.size()[0]
     type_constr = torch.cuda if enable_cuda else torch
-    rewards_batch = type_constr.FloatTensor(batch_size, 3).fill_(0)  # each row is: {one, two, combined}
+    rewards_batch = type_constr.FloatTensor(batch_size, 3).fill_(0)
     if t == 0:
         # on first timestep theres no actual proposal yet, so score zero if terminate
         return rewards_batch

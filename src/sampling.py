@@ -9,10 +9,12 @@ from absl import flags
 FLAGS = flags.FLAGS
 
 
-def sample_items(batch_size, max_quantity=FLAGS.item_max_quantity, num_items=FLAGS.item_num_types,
+def sample_items(batch_size,
+                 max_quantity=FLAGS.item_max_quantity,
+                 num_items=FLAGS.item_num_types,
                  random_state=np.random):
     """
-    max_quantity 6 will give possible values: 0,1,2,3,4,5
+    max_quantity 5 will give 6 possible values: 0,1,2,3,4,5
     """
     pool = np.zeros((batch_size, num_items), dtype=np.int64)
     zero_pool = [0]*num_items
@@ -20,7 +22,7 @@ def sample_items(batch_size, max_quantity=FLAGS.item_max_quantity, num_items=FLA
     num_zeros = batch_size
     #find batches with all 0s and regenerate
     while num_zeros > 0:
-        pool[zero_idxs] = random_state.choice(max_quantity, (num_zeros, num_items), replace=True)
+        pool[zero_idxs] = random_state.choice(max_quantity + 1, (num_zeros, num_items), replace=True)
         zero_idxs = (pool == zero_pool)[:,0]
         num_zeros = np.count_nonzero(zero_idxs)
 
@@ -35,7 +37,7 @@ def sample_utility(batch_size,
                    random_state=np.random):
     util = np.zeros((batch_size, num_items), dtype=np.int64)
     min_utility = 1 if nonzero else 0
-    utility_range = np.arange(min_utility, max_utility)
+    utility_range = np.arange(min_utility, max_utility+1)
 
     if not normalize:
         zero_util = [0]*num_items
@@ -48,7 +50,6 @@ def sample_utility(batch_size,
             num_zeros = np.count_nonzero(zero_idxs)
     else:
         norm_sum = int(0.5 * max_quantity * num_items)
-        util_range = np.arange(1, max_quantity)
         util = random_state.choice(utility_range, (batch_size, num_items), replace=True)
         util = util * norm_sum // np.sum(util, axis=1)
 
@@ -57,7 +58,7 @@ def sample_utility(batch_size,
 
 def sample_N(batch_size, random_state=np.random):
     N = random_state.poisson(7, batch_size)
-    N = np.clip(N, 4, 10)
+    N = np.clip(N, 4, FLAGS.max_timesteps)
     N = torch.from_numpy(N)
     return N
 

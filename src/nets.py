@@ -1,16 +1,14 @@
 #TODO
 # check num_tokens in UtterancePolicy
 
-from absl import flags
 import torch
+import torch.nn.functional as F
+from absl import flags
 from torch import nn, autograd
 from torch.autograd import Variable
-import torch.nn.functional as F
-
-from src.args import (UTT_VOCAB_SIZE,
-                      UTT_MAX_LEN)
 
 FLAGS = flags.FLAGS
+
 
 class NumberSequenceEncoder(nn.Module):
     def __init__(self, num_values, embedding_size=100):

@@ -12,8 +12,9 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer('utt_max_length', 6, 'max length of an utterance')
 flags.DEFINE_integer('utt_vocab_size', 11, 'size of utterance vocab')
 flags.DEFINE_integer('item_max_quantity', 6, 'max + 1 quantity of pool item')
-flags.DEFINE_integer('item_max_utility', 6, 'max + 1 utility of pool item')
+flags.DEFINE_integer('item_max_utility', 10, 'max utility of pool item')
 flags.DEFINE_integer('item_num_types', 3, 'number of pool item types')
+flags.DEFINE_integer('max_timesteps', 10, 'max number of timesteps')
 
 # experiments
 flags.DEFINE_boolean('utility_normalize', False, 'sum of both agents utilities is 0.5*max_utility*num_types')
