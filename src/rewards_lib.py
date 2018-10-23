@@ -4,18 +4,18 @@ import torch
 # measure selfish reward correctly
 
 def calc_rewards(t, s, term, enable_cuda):
-    # calcualate rewards for any that just finished
-    # it will calculate three reward values:
-    # - agent 1 (as % of its max),
-    # - agent 2 (as % of its max),
-    # - prosocial (as % of max agent 1 + 2)
+    """ calcualate rewards for any games just finished
+    it will calculate three reward values:
+        - agent 1 (as % of its max),
+        - agent 2 (as % of its max),
+        - prosocial (as % of max agent 1 + 2)
 
-    # in the non-prosocial setting, we need all three:
-    # - first two for training
-    # - next one for evaluating Table 1, in the paper
-    # in the prosocial case, we'll skip calculating the individual agent rewards, possibly/probably
-
-    # assert prosocial, 'not tested for not prosocial currently'
+    in the non-prosocial setting, we need all three:
+        - first two for training
+        - next one for evaluating Table 1, in the paper
+    in the prosocial case, we'll skip calculating the individual agent rewards,
+    possibly/probably
+    """
 
     agent = t % 2
     batch_size = term.size()[0]

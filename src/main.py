@@ -21,6 +21,8 @@ flags.DEFINE_boolean('utility_normalize', False, 'sum of both agents utilities i
 flags.DEFINE_boolean('utility_nonzero', False, 'force min utility of 1 for every object')
 flags.DEFINE_enum('force_utility_comm', None, ['A', 'B', 'both'], 'force an agent to communicate its utilities')
 
+# model info
+flags.DEFINE_integer('batch-size', 128, 'number of negotiation games simultaneously')
 
 def parse_flags(argv):
     parser = argparse_flags.ArgumentParser()
@@ -32,7 +34,6 @@ def parse_flags(argv):
     # game_args.add_argument('--item-max-utility', type=int, default=11)
     # model info
     parser.add_argument('--model-file', type=str, default='model_saves/model.dat')
-    parser.add_argument('--batch-size', type=int, default=128)
     parser.add_argument('--seed', type=int, help='optional')
     parser.add_argument('--test-seed', type=int, default=123, help='used for generating test game set')
     parser.add_argument('--episodes', type=int, default=5e5, help='total number of episodes to run')
