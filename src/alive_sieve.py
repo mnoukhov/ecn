@@ -66,7 +66,7 @@ class AliveSieve(object):
         self.out_idxes = self.out_idxes[self.alive_idxes]
 
         self.batch_size = self.alive_mask.int().sum()
-        self.alive_mask = self.type_constr.ByteTensor(self.batch_size).fill_(1)
+        self.alive_mask = self.type_constr.ByteTensor(self.batch_size.item()).fill_(1)
         self.alive_idxes = self.mask_to_idxes(self.alive_mask)
 
     def sieve_tensor(self, t):

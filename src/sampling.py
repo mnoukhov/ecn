@@ -10,8 +10,8 @@ FLAGS = flags.FLAGS
 
 
 def sample_items(batch_size,
-                 max_quantity=FLAGS.item_max_quantity,
-                 num_items=FLAGS.item_num_types,
+                 max_quantity,
+                 num_items,
                  random_state=np.random):
     """
     max_quantity 5 will give 6 possible values: 0,1,2,3,4,5
@@ -30,10 +30,10 @@ def sample_items(batch_size,
 
 
 def sample_utility(batch_size,
-                   max_utility=FLAGS.item_max_utility,
-                   num_items=FLAGS.item_num_types,
-                   normalize=FLAGS.utility_normalize,
-                   nonzero=FLAGS.utility_nonzero,
+                   max_utility,
+                   num_items,
+                   normalize,
+                   nonzero,
                    random_state=np.random):
     util = np.zeros((batch_size, num_items), dtype=np.int64)
     min_utility = 1 if nonzero else 0
@@ -56,22 +56,35 @@ def sample_utility(batch_size,
     return torch.from_numpy(util)
 
 
-def sample_N(batch_size, random_state=np.random):
+def sample_N(batch_size,
+             max_timesteps,
+             random_state=np.random):
     N = random_state.poisson(7, batch_size)
-    N = np.clip(N, 4, FLAGS.max_timesteps)
+    N = np.clip(N, 4, max_timesteps)
     N = torch.from_numpy(N)
     return N
 
 
 def generate_batch(batch_size, random_state=np.random):
     pool = sample_items(batch_size=batch_size,
+                        max_quantity=FLAGS.item_max_quantity,
+                        num_items=FLAGS.item_num_types,
                         random_state=random_state)
-    utilities = []
-    utilities.append(sample_utility(batch_size=batch_size,
-                                    random_state=random_state))
-    utilities.append(sample_utility(batch_size=batch_size,
-                                    random_state=random_state))
-    N = sample_N(batch_size=batch_size, random_state=random_state)
+    utilities = [sample_utility(batch_size=batch_size,
+                                max_utility=FLAGS.item_max_utility,
+                                num_items=FLAGS.item_num_types,
+                                normalize=FLAGS.utility_normalize,
+                                nonzero=FLAGS.utility_nonzero,
+                                random_state=random_state),
+                 sample_utility(batch_size=batch_size,
+                                max_utility=FLAGS.item_max_utility,
+                                num_items=FLAGS.item_num_types,
+                                normalize=FLAGS.utility_normalize,
+                                nonzero=FLAGS.utility_nonzero,
+                                random_state=random_state)]
+    N = sample_N(batch_size=batch_size,
+                 max_timesteps=FLAGS.max_timesteps,
+                 random_state=random_state)
     return {
         'pool': pool,
         'utilities': utilities,

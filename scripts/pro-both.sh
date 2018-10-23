@@ -4,21 +4,20 @@
 #SBATCH --time=0-10:00
 
 source ~/.bashrc
-source activate emerge
-export PROJECTROOT="$HOME/iter-comm"
+source activate ecn
+export PROJECTROOT="$HOME/ecn"
 export PYTHONPATH=$PROJECTROOT:$PYTHONPATH
 
-python src/ecn.py \
-    --enable-cuda \
+python src/main.py \
     --model-file 'model_saves/pro-both.dat' \
     --name 'pro-both' \
     --prosocial \
-    --enable-comms \
-    --enable-proposal \
+    --linguistic \
+    --proposal \
     --term-entropy-reg 0.5 \
     --utterance-entropy-reg 0.0001 \
     --proposal-entropy-reg 0.01 \
-    --render-every-seconds 120 \
+    --render-every-episode 100 \
     --save-every-seconds 360 \
     --episodes 300000 \
     $@

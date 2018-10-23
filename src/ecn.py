@@ -36,9 +36,9 @@ def render_action(t, s, prop, term):
     else:
         print(' ' + ''.join([str(v) for v in s.m_prev[0].view(-1).tolist()]), end='')
         print(' %s:%s/%s %s:%s/%s %s:%s/%s' % (
-            utility[0][0], prop[0][0], s.pool[0][0],
-            utility[0][1], prop[0][1], s.pool[0][1],
-            utility[0][2], prop[0][2], s.pool[0][2],
+            utility[0][0].item(), prop[0][0].item(), s.pool[0][0].item(),
+            utility[0][1].item(), prop[0][1].item(), s.pool[0][1].item(),
+            utility[0][2].item(), prop[0][2].item(), s.pool[0][2].item(),
         ), end='')
         print('')
         if t + 1 == s.N[0]:
@@ -100,11 +100,8 @@ class State(object):
 def run_episode(
     batch,
     enable_cuda,
-    enable_comms,
-    enable_proposal,
-    prosocial,
     agent_models,
-    # batch_size,
+    batch_size,
     testing,
     render=False):
     """
@@ -112,7 +109,6 @@ def run_episode(
     """
 
     type_constr = torch.cuda if enable_cuda else torch
-    batch_size = batch['N'].size()[0]
     s = State(**batch)
     if enable_cuda:
         s.cuda()
@@ -142,7 +138,7 @@ def run_episode(
         agent = t % 2
 
         agent_model = agent_models[agent]
-        if not enable_comms:
+        if not FLAGS.linguistic:
             # we dont strictly need to blank them, since they'll be all zeros anyway,
             # but defense in depth and all that :)
             _prev_message = type_constr.LongTensor(sieve.batch_size, 6).fill_(0)
@@ -161,7 +157,7 @@ def run_episode(
                 _prev_message = s.m_prev
 
 
-        if enable_proposal:
+        if FLAGS.proposal:
             _prev_proposal = s.last_proposal
         else:
             # we do need to blank this one though :)
@@ -197,7 +193,7 @@ def run_episode(
             t=t,
             s=s,
             term=term_a,
-            enable_cuda=args.enable_cuda
+            enable_cuda=enable_cuda
         )
         rewards[sieve.out_idxes] = new_rewards
         s.last_proposal = this_proposal
@@ -248,7 +244,6 @@ def run(args):
     test_r = np.random.RandomState(args.test_seed)
     test_batches = generate_test_batches(batch_size=args.batch_size,
                                          num_batches=5,
-                                         normalize_utility=args.normalize_utility,
                                          random_state=test_r)
     test_hashes = hash_batches(test_batches)
 
@@ -258,8 +253,6 @@ def run(args):
     agent_opts = []
     for i in range(2):
         model = AgentModel(
-            enable_comms=args.enable_comms,
-            enable_proposal=args.enable_proposal,
             term_entropy_reg=args.term_entropy_reg,
             utterance_entropy_reg=args.utterance_entropy_reg,
             proposal_entropy_reg=args.proposal_entropy_reg
@@ -297,22 +290,18 @@ def run(args):
     prop_matches_argmax_count = 0
     prop_stochastic_draws = 0
     while episode < args.episodes:
-        render = time.time() - last_print >= args.render_every_seconds
+        render = (episode % args.render_every_episode == 0)
         # render = True
         batch = generate_training_batch(batch_size=args.batch_size,
                                         test_hashes=test_hashes,
-                                        normalize_utility=args.normalize_utility,
                                         random_state=train_r)
         (actions, rewards, steps, alive_masks, entropy_loss_by_agent,
          _term_matches_argmax_count, _num_policy_runs, _utt_matches_argmax_count, _utt_stochastic_draws,
          _prop_matches_argmax_count, _prop_stochastic_draws) = run_episode(
              batch=batch,
              enable_cuda=args.enable_cuda,
-             enable_comms=args.enable_comms,
-             enable_proposal=args.enable_proposal,
              agent_models=agent_models,
-             prosocial=args.prosocial,
-             # batch_size=batch_size,
+             batch_size=args.batch_size,
              render=render,
              testing=args.testing)
         term_matches_argmax_count += _term_matches_argmax_count
@@ -329,7 +318,7 @@ def run(args):
             baselined_rewards = rewards - baseline
             rewards_by_agent = []
             for i in range(2):
-                if args.prosocial:
+                if FLAGS.prosocial:
                     rewards_by_agent.append(baselined_rewards[:, 2])
                 else:
                     rewards_by_agent.append(baselined_rewards[:, i])
@@ -367,17 +356,15 @@ def run(args):
                  _prop_matches_argmax_count, _prop_stochastic_draws) = run_episode(
                      batch=test_batch,
                      enable_cuda=args.enable_cuda,
-                     enable_comms=args.enable_comms,
-                     enable_proposal=args.enable_proposal,
                      agent_models=agent_models,
-                     prosocial=args.prosocial,
+                     batch_size=args.batch_size,
                      render=True,
                      testing=True)
                 test_rewards_sum += test_rewards.sum(0)
-            print('test reward=%.3f' % (test_rewards_sum[2] / test_count_sum))
+            print('test reward=%.3f' % (test_rewards_sum[2] / test_count_sum).item())
 
             time_since_last = time.time() - last_print
-            if args.prosocial:
+            if FLAGS.prosocial:
                 baseline_str = '%.2f' % baseline[2]
                 # rewards_str = '%.2f' % (rewards_sum[2] / count_sum)
             else:
@@ -388,25 +375,25 @@ def run(args):
                 rewards_str,
                 baseline_str,
                 int(count_sum / time_since_last),
-                steps_sum / count_sum,
-                term_matches_argmax_count / num_policy_runs,
-                safe_div(utt_matches_argmax_count, utt_stochastic_draws),
-                prop_matches_argmax_count / prop_stochastic_draws
+                steps_sum.item() / count_sum,
+                term_matches_argmax_count.item() / num_policy_runs.item(),
+                safe_div(utt_matches_argmax_count.item(), utt_stochastic_draws),
+                prop_matches_argmax_count.item() / prop_stochastic_draws
             ))
             f_log.write(json.dumps({
                 'episode': episode,
-                'avg_reward_A': rewards_sum[0] / count_sum,
-                'avg_reward_B': rewards_sum[1] / count_sum,
-                'avg_reward_0': rewards_sum[2] / count_sum,
-                'test_reward_A': test_rewards_sum[0] / test_count_sum,
-                'test_reward_B': test_rewards_sum[1] / test_count_sum,
-                'test_reward': test_rewards_sum[2] / test_count_sum,
-                'avg_steps': steps_sum / count_sum,
-                'games_sec': count_sum / time_since_last,
+                'avg_reward_A': (rewards_sum[0] / count_sum).item(),
+                'avg_reward_B': (rewards_sum[1] / count_sum).item(),
+                'avg_reward_0': (rewards_sum[2] / count_sum).item(),
+                'test_reward_A': (test_rewards_sum[0] / test_count_sum).item(),
+                'test_reward_B': (test_rewards_sum[1] / test_count_sum).item(),
+                'test_reward': (test_rewards_sum[2] / test_count_sum).item(),
+                'avg_steps': (steps_sum / count_sum).item(),
+                'games_sec': (count_sum / time_since_last),
                 'elapsed': time.time() - start_time,
-                'argmaxp_term': (term_matches_argmax_count / num_policy_runs),
-                'argmaxp_utt': safe_div(utt_matches_argmax_count, utt_stochastic_draws),
-                'argmaxp_prop': (prop_matches_argmax_count / prop_stochastic_draws)
+                'argmaxp_term': (term_matches_argmax_count / num_policy_runs).item(),
+                'argmaxp_utt': safe_div(utt_matches_argmax_count, utt_stochastic_draws).item(),
+                'argmaxp_prop': (prop_matches_argmax_count / prop_stochastic_draws).item()
             }) + '\n')
             f_log.flush()
             last_print = time.time()

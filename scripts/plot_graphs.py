@@ -7,7 +7,7 @@ import argparse
 import numpy as np
 
 
-def plot_reward(logfile, title, min_y, max_y, max_x):
+def plot_reward(logfile, title, min_y, max_y, max_x, test):
     """
     logfiles separated by : are combined
     logfiles separated by , go in separate plots
@@ -66,7 +66,7 @@ def plot_reward(logfile, title, min_y, max_y, max_x):
             suffix = ' %s' % (j + 1)
 
         for name, reward in reward_names.items():
-            if reward:
+            if reward and (not args.test or 'test' in name):
                 plt.plot(np.array(epoch) / 1000, reward, label=name + suffix)
 
     if title is not None:
@@ -85,6 +85,7 @@ if __name__ == '__main__':
     parser.add_argument('--max-x', type=int)
     parser.add_argument('--min-y', type=float)
     parser.add_argument('--max-y', type=float)
+    parser.add_argument('--test', action='store_true')
 
     args = parser.parse_args()
     plot_reward(**vars(args))

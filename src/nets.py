@@ -74,7 +74,7 @@ class TermPolicy(nn.Module):
 
 
 class UtterancePolicy(nn.Module):
-    def __init__(self, embedding_size=100, num_tokens=10, max_len=FLAGS.utt_max_length):
+    def __init__(self, max_len, embedding_size=100, num_tokens=10):
         super().__init__()
         self.embedding_size = embedding_size
         self.num_tokens = num_tokens
@@ -112,7 +112,7 @@ class UtterancePolicy(nn.Module):
 
             log_g = None
             if not testing:
-                a = torch.multinomial(probs)
+                a = torch.multinomial(probs, 1)
                 g = torch.gather(probs, 1, Variable(a.data))
                 log_g = g.log()
                 a = a.data
@@ -162,12 +162,12 @@ class ProposalPolicy(nn.Module):
 
             log_g = None
             if not testing:
-                a = torch.multinomial(probs)
+                a = torch.multinomial(probs, 1)
                 g = torch.gather(probs, 1, Variable(a.data))
                 log_g = g.log()
-                a = a.data
+                a = torch.squeeze(a.data)
             else:
-                a = res_greedy
+                a = torch.squeeze(res_greedy)
 
             matches_argmax = res_greedy == a
             matches_argmax_count += matches_argmax.int().sum()
@@ -183,29 +183,25 @@ class ProposalPolicy(nn.Module):
 
 
 class AgentModel(nn.Module):
-    def __init__(
-            self, enable_comms, enable_proposal,
-            term_entropy_reg,
-            utterance_entropy_reg,
-            proposal_entropy_reg,
-            embedding_size=100):
+    def __init__(self,
+                 term_entropy_reg,
+                 utterance_entropy_reg,
+                 proposal_entropy_reg,
+                 embedding_size=100):
         super().__init__()
         self.term_entropy_reg = term_entropy_reg
         self.utterance_entropy_reg = utterance_entropy_reg
         self.proposal_entropy_reg = proposal_entropy_reg
         self.embedding_size = embedding_size
-        self.enable_comms = enable_comms
-        self.enable_proposal = enable_proposal
-        #TODO move embedding out of this?
-        self.context_net = NumberSequenceEncoder(num_values=6)
+        self.context_net = NumberSequenceEncoder(num_values=FLAGS.item_max_quantity + 1)
         self.utterance_net = NumberSequenceEncoder(num_values=FLAGS.utt_vocab_size)
-        self.proposal_net = NumberSequenceEncoder(num_values=6)
+        self.proposal_net = NumberSequenceEncoder(num_values=FLAGS.item_max_quantity + 1)
         self.proposal_net.embedding = self.context_net.embedding
 
         self.combined_net = CombinedNet()
 
         self.term_policy = TermPolicy()
-        self.utterance_policy = UtterancePolicy()
+        self.utterance_policy = UtterancePolicy(FLAGS.utt_max_length)
         self.proposal_policy = ProposalPolicy()
 
     def forward(self, pool, utility, m_prev, prev_proposal, testing):
@@ -217,7 +213,7 @@ class AgentModel(nn.Module):
         context = torch.cat([pool, utility], 1)
         c_h = self.context_net(context)
         type_constr = torch.cuda if context.is_cuda else torch
-        if self.enable_comms:
+        if FLAGS.linguistic:
             m_h = self.utterance_net(m_prev)
         else:
             m_h = Variable(type_constr.FloatTensor(batch_size, self.embedding_size).fill_(0))
@@ -234,7 +230,7 @@ class AgentModel(nn.Module):
         entropy_loss -= entropy * self.term_entropy_reg
 
         utterance = None
-        if self.enable_comms:
+        if FLAGS.linguistic:
             utterance_nodes, utterance, utterance_entropy, utt_matches_argmax_count, utt_stochastic_draws = self.utterance_policy(
                 h_t, testing=testing)
             nodes += utterance_nodes
