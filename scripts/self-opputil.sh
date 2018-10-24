@@ -1,26 +1,17 @@
 #!/bin/bash
-#SBATCH --gres=gpu:1
-#SBATCH --mem=4G
-#SBATCH --time=0-10:00
 
-source ~/.bashrc
-source activate emerge
-export PROJECTROOT="$HOME/iter-comm"
-export PYTHONPATH=$PROJECTROOT:$PYTHONPATH
-
-name="self-opputil$1"
-
-python src/ecn.py \
+python src/main.py \
+    --name "self-opputil$1" \
+    --noprosocial \
+    --proposal \
+    --linguistic \
+    --force_utility_comm "$1" \
     --enable-cuda \
-    --model-file "model_saves/$name.dat" \
-    --name $name \
-    --selfish \
-    --enable-comms \
-    --comms-opponent-utility $1 \
-    --enable-proposal \
+    --model_dir "model_saves" \
+    --logdir "logs" \
     --term-entropy-reg 0.05 \
     --utterance-entropy-reg 0.0001 \
     --proposal-entropy-reg 0.005 \
-    --render-every-seconds 120 \
+    --render-every-episode 200 \
     --save-every-seconds 360 \
     --episodes 500000 \

@@ -52,7 +52,7 @@ class TermPolicy(nn.Module):
 
     def forward(self, thoughtvector, testing, eps=1e-8):
         logits = self.h1(thoughtvector)
-        term_probs = F.sigmoid(logits)
+        term_probs = torch.sigmoid(logits)
         matches_argmax_count = 0
 
         res_greedy = (term_probs.data >= 0.5).view(-1, 1).float()

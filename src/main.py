@@ -1,4 +1,5 @@
 import datetime
+import os
 
 from absl import app
 from absl import flags
@@ -39,7 +40,6 @@ def parse_flags(argv):
     # game_args.add_argument('--item-max-quantity', type=int, default=6)
     # game_args.add_argument('--item-max-utility', type=int, default=11)
     # model info
-    parser.add_argument('--model-file', type=str, default='model_saves/model.dat')
     parser.add_argument('--seed', type=int, help='optional')
     parser.add_argument('--test-seed', type=int, default=123, help='used for generating test game set')
     parser.add_argument('--batch_size', type=int, default=128)
@@ -55,12 +55,18 @@ def parse_flags(argv):
     parser.add_argument('--enable-cuda', action='store_true')
     parser.add_argument('--no-load', action='store_true')
     parser.add_argument('--no-save', action='store_true')
-    parser.add_argument('--name', type=str, default='', help='used for logfile naming')
-    parser.add_argument('--logfile', type=str, default='logs/log_%Y%m%d_%H%M%S{name}.log')
+    parser.add_argument('--name', type=str, default='', help='used for logfile and model naming')
+    parser.add_argument('--logdir', type=str, default='logs')
+    parser.add_argument('--model_dir', type=str, default='model_saves')
     args = parser.parse_args()
-    args.logfile = args.logfile.format(**args.__dict__)
-    args.logfile = datetime.datetime.strftime(datetime.datetime.now(), args.logfile)
+
+    slurm_id = os.environ.get('SLURM_JOB_ID', '')
+    args.log_file = '{}/{}_{}_%Y%m%d.log'.format(args.logdir, args.name, slurm_id)
+    args.log_file = datetime.datetime.strftime(datetime.datetime.now(), args.log_file)
+    args.model_file = '{}/{}_{}_%Y%m%d.dat'.format(args.model_dir, args.name, slurm_id)
     del args.__dict__['name']
+    del args.__dict__['logdir']
+    del args.__dict__['model_dir']
 
     return args
 

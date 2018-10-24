@@ -220,9 +220,13 @@ def run_episode(
 def safe_div(a, b):
     """
     returns a / b, unless b is zero, in which case returns 0
-
     this is primarily for usage in cases where b might be systemtically zero, eg because comms are disabled or similar
+    also accounts for a or b being tensors
     """
+    if isinstance(a, torch.Tensor):
+        a = a.item()
+    if isinstance(b, torch.Tensor):
+        b = b.item()
     return 0 if b == 0 else a / b
 
 
@@ -233,6 +237,8 @@ def run(args):
     - not run optimizers
     - not save model
     """
+    print(args)
+    print(FLAGS.flags_into_string())
     type_constr = torch.cuda if args.enable_cuda else torch
     if args.seed is not None:
         np.random.seed(args.seed)
@@ -279,7 +285,7 @@ def run(args):
     for d in ['logs', 'model_saves']:
         if not path.isdir(d):
             os.makedirs(d)
-    f_log = open(args.logfile, 'w')
+    f_log = open(args.log_file, 'w')
     f_log.write('meta: %s\n' % json.dumps(args.__dict__))
     last_save = time.time()
     baseline = type_constr.FloatTensor(3).fill_(0)
@@ -377,7 +383,7 @@ def run(args):
                 int(count_sum / time_since_last),
                 steps_sum.item() / count_sum,
                 term_matches_argmax_count.item() / num_policy_runs.item(),
-                safe_div(utt_matches_argmax_count.item(), utt_stochastic_draws),
+                safe_div(utt_matches_argmax_count, utt_stochastic_draws),
                 prop_matches_argmax_count.item() / prop_stochastic_draws
             ))
             f_log.write(json.dumps({
@@ -392,7 +398,7 @@ def run(args):
                 'games_sec': (count_sum / time_since_last),
                 'elapsed': time.time() - start_time,
                 'argmaxp_term': (term_matches_argmax_count / num_policy_runs).item(),
-                'argmaxp_utt': safe_div(utt_matches_argmax_count, utt_stochastic_draws).item(),
+                'argmaxp_utt': safe_div(utt_matches_argmax_count, utt_stochastic_draws),
                 'argmaxp_prop': (prop_matches_argmax_count / prop_stochastic_draws).item()
             }) + '\n')
             f_log.flush()
