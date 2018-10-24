@@ -138,24 +138,12 @@ def run_episode(
         agent = t % 2
 
         agent_model = agent_models[agent]
-        if not FLAGS.linguistic:
+        if FLAGS.linguistic:
+            _prev_message = s.m_prev
+        else:
             # we dont strictly need to blank them, since they'll be all zeros anyway,
             # but defense in depth and all that :)
             _prev_message = type_constr.LongTensor(sieve.batch_size, 6).fill_(0)
-        else:
-            if ((FLAGS.force_utility_comm == 'A' and agent == 0) or
-                (FLAGS.force_utility_comm == 'B' and agent == 1) or
-                (FLAGS.force_utility_comm == 'both')):
-                # 0: agent 0 sees agent 1 utility
-                # 1: agent 1 sees agent 0 utility
-                # 2: both agents see each other's utility
-                _prev_message = type_constr.LongTensor(sieve.batch_size, 6).fill_(0)
-                _prev_message[:,:3] = s.utilities[:, 1 - agent]
-            else:
-                # either force_utility_comm is None
-                # or this agent isn't being forced to communicate its utility
-                _prev_message = s.m_prev
-
 
         if FLAGS.proposal:
             _prev_proposal = s.last_proposal
@@ -257,8 +245,10 @@ def run(args):
     start_time = time.time()
     agent_models = []
     agent_opts = []
+    agent_name = ['A', 'B']
     for i in range(2):
         model = AgentModel(
+            name=agent_name[i],
             term_entropy_reg=args.term_entropy_reg,
             utterance_entropy_reg=args.utterance_entropy_reg,
             proposal_entropy_reg=args.proposal_entropy_reg

@@ -184,11 +184,13 @@ class ProposalPolicy(nn.Module):
 
 class AgentModel(nn.Module):
     def __init__(self,
+                 name,
                  term_entropy_reg,
                  utterance_entropy_reg,
                  proposal_entropy_reg,
                  embedding_size=100):
         super().__init__()
+        self.name = name
         self.term_entropy_reg = term_entropy_reg
         self.utterance_entropy_reg = utterance_entropy_reg
         self.proposal_entropy_reg = proposal_entropy_reg
@@ -231,10 +233,16 @@ class AgentModel(nn.Module):
 
         utterance = None
         if FLAGS.linguistic:
-            utterance_nodes, utterance, utterance_entropy, utt_matches_argmax_count, utt_stochastic_draws = self.utterance_policy(
-                h_t, testing=testing)
-            nodes += utterance_nodes
-            entropy_loss -= self.utterance_entropy_reg * utterance_entropy
+            if (FLAGS.force_utility_comm == 'both' or
+                FLAGS.force_utility_comm == self.name):
+                utt_matches_argmax_count = 0
+                utt_stochastic_draws = 0
+                utterance = type_constr.LongTensor(batch_size, 6).zero_()
+                utterance[:,:3] = utility
+            else:
+                utterance_nodes, utterance, utterance_entropy, utt_matches_argmax_count, utt_stochastic_draws = self.utterance_policy( h_t, testing=testing)
+                nodes += utterance_nodes
+                entropy_loss -= self.utterance_entropy_reg * utterance_entropy
         else:
             utt_matches_argmax_count = 0
             utt_stochastic_draws = 0
