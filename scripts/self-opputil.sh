@@ -15,3 +15,4 @@ python src/main.py \
     --render-every-episode 200 \
     --save-every-seconds 360 \
     --episodes 500000 \
+    "${@:2}"

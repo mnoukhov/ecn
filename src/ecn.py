@@ -357,7 +357,10 @@ def run(args):
                      render=True,
                      testing=True)
                 test_rewards_sum += test_rewards.sum(0)
-            print('test reward=%.3f' % (test_rewards_sum[2] / test_count_sum).item())
+            test_rewards_str = '%.2f,%.2f,%.2f' % (test_rewards_sum[0] / test_count_sum,
+                                                   test_rewards_sum[1] / test_count_sum,
+                                                   test_rewards_sum[2] / test_count_sum)
+            print('test rewards = {}'.format(test_rewards_str))
 
             time_since_last = time.time() - last_print
             if FLAGS.prosocial:

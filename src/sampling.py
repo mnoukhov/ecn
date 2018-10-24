@@ -49,9 +49,9 @@ def sample_utility(batch_size,
             zero_idxs = (util == zero_util)[:,0]
             num_zeros = np.count_nonzero(zero_idxs)
     else:
-        norm_sum = int(0.5 * max_quantity * num_items)
+        norm_sum = int(0.5 * max_utility * num_items)
         util = random_state.choice(utility_range, (batch_size, num_items), replace=True)
-        util = util * norm_sum // np.sum(util, axis=1)
+        util = util * norm_sum // np.sum(util, axis=1)[:,None]
 
     return torch.from_numpy(util)
 
