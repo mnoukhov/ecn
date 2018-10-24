@@ -64,6 +64,7 @@ def parse_flags(argv):
     args.log_file = '{}/{}_{}_%Y%m%d.log'.format(args.logdir, args.name, slurm_id)
     args.log_file = datetime.datetime.strftime(datetime.datetime.now(), args.log_file)
     args.model_file = '{}/{}_{}_%Y%m%d.dat'.format(args.model_dir, args.name, slurm_id)
+    args.model_file = datetime.datetime.strftime(datetime.datetime.now(), args.model_file)
     del args.__dict__['name']
     del args.__dict__['logdir']
     del args.__dict__['model_dir']
