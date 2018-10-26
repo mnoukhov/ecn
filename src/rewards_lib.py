@@ -1,5 +1,7 @@
 import torch
 
+from absl import flags, logging
+
 #TODO
 # measure selfish reward correctly
 
@@ -59,13 +61,15 @@ def calc_rewards(t, s, term, enable_cuda):
         actual_prosocial = raw_rewards[b].sum()
         available_prosocial = torch.dot(max_utility[b], pool[b])
         if available_prosocial == 0:
-            raise ValueError('either pool or max utility is all 0')
-
-        rewards_batch[b][2] = actual_prosocial / available_prosocial
+            logging.error('total available utility 0, utilities {}, pool {}'.format(utilities[b], pool[b]))
+        else:
+            rewards_batch[b][2] = actual_prosocial / available_prosocial
 
         for i in range(2):
             max_agent = torch.dot(utilities[b, i], pool[b])
             if max_agent != 0:
                 rewards_batch[b][i] = raw_rewards[b][i] / max_agent
+            else:
+                logging.warning('agent available utility 0, utility {}, pool {}'.format(utilities[b,i], pool[b]))
 
     return rewards_batch

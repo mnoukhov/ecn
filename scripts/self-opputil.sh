@@ -6,7 +6,7 @@ python src/main.py \
     --proposal \
     --linguistic \
     --force_utility_comm "$1" \
-    --enable-cuda \
+    --enable_cuda \
     --model_dir "model_saves" \
     --logdir "logs" \
     --term-entropy-reg 0.05 \

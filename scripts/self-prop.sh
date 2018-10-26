@@ -5,7 +5,7 @@ python src/main.py \
     --noprosocial \
     --proposal \
     --nolinguistic \
-    --enable-cuda \
+    --enable_cuda \
     --model_dir "model_saves" \
     --logdir "logs" \
     --term-entropy-reg 0.05 \

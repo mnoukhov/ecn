@@ -1,4 +1,4 @@
-#TODO
+# TODO
 # test/save per episode not
 # change everything from long to float
 
@@ -141,14 +141,11 @@ def run_episode(
         if FLAGS.linguistic:
             _prev_message = s.m_prev
         else:
-            # we dont strictly need to blank them, since they'll be all zeros anyway,
-            # but defense in depth and all that :)
             _prev_message = type_constr.LongTensor(sieve.batch_size, 6).fill_(0)
 
         if FLAGS.proposal:
             _prev_proposal = s.last_proposal
         else:
-            # we do need to blank this one though :)
             _prev_proposal = type_constr.LongTensor(sieve.batch_size, 3).fill_(0)
 
         (nodes, term_a, s.m_prev, this_proposal, _entropy_loss,
@@ -227,7 +224,7 @@ def run(args):
     """
     print(args)
     print(FLAGS.flags_into_string())
-    type_constr = torch.cuda if args.enable_cuda else torch
+    type_constr = torch.cuda if FLAGS.enable_cuda else torch
     if args.seed is not None:
         np.random.seed(args.seed)
         torch.manual_seed(args.seed)
@@ -253,7 +250,7 @@ def run(args):
             utterance_entropy_reg=args.utterance_entropy_reg,
             proposal_entropy_reg=args.proposal_entropy_reg
         )
-        if args.enable_cuda:
+        if FLAGS.enable_cuda:
             model = model.cuda()
         agent_models.append(model)
         agent_opts.append(optim.Adam(params=agent_models[i].parameters()))
@@ -295,7 +292,7 @@ def run(args):
          _term_matches_argmax_count, _num_policy_runs, _utt_matches_argmax_count, _utt_stochastic_draws,
          _prop_matches_argmax_count, _prop_stochastic_draws) = run_episode(
              batch=batch,
-             enable_cuda=args.enable_cuda,
+             enable_cuda=FLAGS.enable_cuda,
              agent_models=agent_models,
              batch_size=args.batch_size,
              render=render,
@@ -318,7 +315,7 @@ def run(args):
                     rewards_by_agent.append(baselined_rewards[:, 2])
                 else:
                     rewards_by_agent.append(baselined_rewards[:, i])
-            sieve_playback = SievePlayback(alive_masks, enable_cuda=args.enable_cuda)
+            sieve_playback = SievePlayback(alive_masks, enable_cuda=FLAGS.enable_cuda)
             for t, global_idxes in sieve_playback:
                 agent = t % 2
                 if len(actions[t]) > 0:
@@ -351,7 +348,7 @@ def run(args):
                  _term_matches_argmax_count, _num_policy_runs, _utt_matches_argmax_count, _utt_stochastic_draws,
                  _prop_matches_argmax_count, _prop_stochastic_draws) = run_episode(
                      batch=test_batch,
-                     enable_cuda=args.enable_cuda,
+                     enable_cuda=FLAGS.enable_cuda,
                      agent_models=agent_models,
                      batch_size=args.batch_size,
                      render=True,

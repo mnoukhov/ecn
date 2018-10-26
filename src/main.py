@@ -9,6 +9,8 @@ from ecn import run
 
 FLAGS = flags.FLAGS
 
+flags.DEFINE_boolean('enable_cuda', True, 'executing on gpu')
+
 # game args
 flags.DEFINE_integer('utt_max_length', 6, 'max length of an utterance')
 flags.DEFINE_integer('utt_vocab_size', 11, 'size of utterance vocab')
@@ -36,7 +38,7 @@ def parse_flags(argv):
     # game args
     # game_args = parser.add_argument_group('game args')
     # game_args.add_argument('--utterance-max-length', type=int, default=6)
-    # game_args.add_argument('--utterance-vocab-size', type=int, default=11)
+    # game_args.add_argument('--utterance-vocab-size', type=int, default=12)
     # game_args.add_argument('--item-max-quantity', type=int, default=6)
     # game_args.add_argument('--item-max-utility', type=int, default=11)
     # model info
@@ -52,7 +54,6 @@ def parse_flags(argv):
     parser.add_argument('--render-every-episode', type=int, default=1)
     parser.add_argument('--save-every-seconds', type=int, default=30)
     parser.add_argument('--testing', action='store_true', help='turn off learning; always pick argmax')
-    parser.add_argument('--enable-cuda', action='store_true')
     parser.add_argument('--no-load', action='store_true')
     parser.add_argument('--no-save', action='store_true')
     parser.add_argument('--name', type=str, default='', help='used for logfile and model naming')
