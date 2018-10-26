@@ -1,9 +1,11 @@
+#TODO
+# measure selfish reward correctly
 import torch
 
 from absl import flags, logging
 
-#TODO
-# measure selfish reward correctly
+FLAGS = flags.FLAGS
+
 
 def calc_rewards(t, s, term, enable_cuda):
     """ calcualate rewards for any games just finished
@@ -53,23 +55,29 @@ def calc_rewards(t, s, term, enable_cuda):
 
     reward_eligible_idxes = reward_eligible_mask.nonzero().view(-1)
     raw_rewards = type_constr.FloatTensor(batch_size, 2).fill_(0)
+    #TODO change this to be vector operation
     for b in reward_eligible_idxes:
         for i in range(2):
             raw_rewards[b][i] = torch.dot(utilities[b, i], proposal[b, i])
 
-        # we always calculate the prosocial reward
-        actual_prosocial = raw_rewards[b].sum()
         available_prosocial = torch.dot(max_utility[b], pool[b])
         if available_prosocial == 0:
             logging.error('total available utility 0, utilities {}, pool {}'.format(utilities[b], pool[b]))
         else:
+            actual_prosocial = raw_rewards[b].sum()
             rewards_batch[b][2] = actual_prosocial / available_prosocial
 
+        max_agent = torch.matmul(utilities[b], pool[b])
         for i in range(2):
-            max_agent = torch.dot(utilities[b, i], pool[b])
-            if max_agent != 0:
-                rewards_batch[b][i] = raw_rewards[b][i] / max_agent
+            if max_agent[i] == 0:
+                logging.warning('agent {} available utility 0, utility {}, pool {}'.format(i, utilities[b,i], pool[b]))
+            elif FLAGS.prosociality > 0:
+                alpha = FLAGS.prosociality
+                actual =  alpha * raw_rewards[b][i] + (1 - alpha) * raw_rewards[b][1-i]
+                #TODO available might not be right
+                available = alpha * max_agent[i] + (1 - alpha) * max_agent[1-i]
+                rewards_batch[b][i] = actual / available
             else:
-                logging.warning('agent available utility 0, utility {}, pool {}'.format(utilities[b,i], pool[b]))
+                rewards_batch[b][i] = raw_rewards[b][i] / max_agent[i]
 
     return rewards_batch

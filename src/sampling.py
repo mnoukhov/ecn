@@ -26,34 +26,37 @@ def sample_items(batch_size,
         zero_idxs = (pool == zero_pool)[:,0]
         num_zeros = np.count_nonzero(zero_idxs)
 
-    return torch.from_numpy(pool)
+    return pool
 
 
 def sample_utility(batch_size,
                    max_utility,
                    num_items,
-                   normalize,
-                   nonzero,
+                   pool,
+                   normalize=False,
+                   nonzero=False,
                    random_state=np.random):
     util = np.zeros((batch_size, num_items), dtype=np.int64)
     min_utility = 1 if nonzero else 0
     utility_range = np.arange(min_utility, max_utility+1)
 
-    if not normalize:
-        zero_util = [0]*num_items
-        zero_idxs = np.arange(batch_size)
-        num_zeros = batch_size
-        #find batches with all 0s and regenerate
-        while num_zeros > 0:
-            util[zero_idxs] = random_state.choice(utility_range, (num_zeros, num_items), replace=True)
-            zero_idxs = (util == zero_util)[:,0]
-            num_zeros = np.count_nonzero(zero_idxs)
-    else:
-        norm_sum = int(0.5 * max_utility * num_items)
-        util = random_state.choice(utility_range, (batch_size, num_items), replace=True)
-        util = util * norm_sum // np.sum(util, axis=1)[:,None]
+    zero_idxs = np.arange(batch_size)
+    num_zeros = batch_size
+    #find batches with all 0s and regenerate
+    while num_zeros > 0:
+        util[zero_idxs] = random_state.choice(utility_range, (num_zeros, num_items), replace=True)
+        # batched dot over the first dimension
+        available_util = np.einsum('ij,ij->i', util, pool)
+        zero_idxs = (available_util == 0)
+        num_zeros = np.count_nonzero(zero_idxs)
 
-    return torch.from_numpy(util)
+    if normalize:
+        #TODO this doesn't guarantee exactly norm_utility because of rounding
+        norm_utility = int(0.5 * max_utility * num_items)
+        util = util * norm_sum / np.sum(util, axis=1)[:,None]
+        util = util.round().astype(int)
+
+    return util
 
 
 def sample_N(batch_size,
@@ -61,7 +64,6 @@ def sample_N(batch_size,
              random_state=np.random):
     N = random_state.poisson(7, batch_size)
     N = np.clip(N, 4, max_timesteps)
-    N = torch.from_numpy(N)
     return N
 
 
@@ -70,25 +72,28 @@ def generate_batch(batch_size, random_state=np.random):
                         max_quantity=FLAGS.item_max_quantity,
                         num_items=FLAGS.item_num_types,
                         random_state=random_state)
-    utilities = [sample_utility(batch_size=batch_size,
-                                max_utility=FLAGS.item_max_utility,
-                                num_items=FLAGS.item_num_types,
-                                normalize=FLAGS.utility_normalize,
-                                nonzero=FLAGS.utility_nonzero,
-                                random_state=random_state),
-                 sample_utility(batch_size=batch_size,
-                                max_utility=FLAGS.item_max_utility,
-                                num_items=FLAGS.item_num_types,
-                                normalize=FLAGS.utility_normalize,
-                                nonzero=FLAGS.utility_nonzero,
-                                random_state=random_state)]
+    utilities = np.array([
+        sample_utility(batch_size=batch_size,
+                       max_utility=FLAGS.item_max_utility,
+                       num_items=FLAGS.item_num_types,
+                       pool=pool,
+                       normalize=FLAGS.utility_normalize,
+                       nonzero=FLAGS.utility_nonzero,
+                       random_state=random_state),
+        sample_utility(batch_size=batch_size,
+                       max_utility=FLAGS.item_max_utility,
+                       num_items=FLAGS.item_num_types,
+                       pool=pool,
+                       normalize=FLAGS.utility_normalize,
+                       nonzero=FLAGS.utility_nonzero,
+                       random_state=random_state)])
     N = sample_N(batch_size=batch_size,
                  max_timesteps=FLAGS.max_timesteps,
                  random_state=random_state)
     return {
-        'pool': pool,
-        'utilities': utilities,
-        'N': N
+        'pool': torch.from_numpy(pool),
+        'utilities': torch.from_numpy(utilities),
+        'N': torch.from_numpy(N)
     }
 
 
