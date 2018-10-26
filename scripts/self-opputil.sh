@@ -3,7 +3,7 @@
 python src/main.py \
     --name "self-opputil$1" \
     --noprosocial \
-    --proposal \
+    --noproposal \
     --linguistic \
     --force_utility_comm "$1" \
     --enable_cuda \
