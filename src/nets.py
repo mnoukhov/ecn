@@ -165,9 +165,9 @@ class ProposalPolicy(nn.Module):
                 a = torch.multinomial(probs, 1)
                 g = torch.gather(probs, 1, Variable(a.data))
                 log_g = g.log()
-                a = torch.squeeze(a.data)
+                a = a.data
             else:
-                a = torch.squeeze(res_greedy)
+                a = res_greedy
 
             matches_argmax = res_greedy == a
             matches_argmax_count += matches_argmax.int().sum()
@@ -177,7 +177,7 @@ class ProposalPolicy(nn.Module):
                 nodes.append(log_g)
             probs = probs + eps
             entropy += (- probs * probs.log()).sum(1).sum()
-            proposal[:, i] = a
+            proposal[:, i] = torch.squeeze(a)
 
         return nodes, proposal, entropy, matches_argmax_count, stochastic_draws
 
