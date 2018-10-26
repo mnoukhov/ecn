@@ -135,9 +135,6 @@ def run_episode(
     if render:
         print('  ')
     for t in range(FLAGS.max_timesteps):
-        agent = t % 2
-
-        agent_model = agent_models[agent]
         if FLAGS.linguistic:
             _prev_message = s.m_prev
         else:
@@ -148,6 +145,8 @@ def run_episode(
         else:
             _prev_proposal = type_constr.LongTensor(sieve.batch_size, 3).fill_(0)
 
+        agent = t % 2
+        agent_model = agent_models[agent]
         (nodes, term_a, s.m_prev, this_proposal, _entropy_loss,
          _term_matches_argmax_count, _utt_matches_argmax_count, _utt_stochastic_draws,
          _prop_matches_argmax_count, _prop_stochastic_draws) = agent_model(

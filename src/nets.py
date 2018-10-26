@@ -212,13 +212,17 @@ class AgentModel(nn.Module):
         cannot use this when training
         """
         batch_size = pool.size()[0]
+        type_constr = torch.cuda if context.is_cuda else torch
+
+        # parse all inputs
         context = torch.cat([pool, utility], 1)
         c_h = self.context_net(context)
-        type_constr = torch.cuda if context.is_cuda else torch
+
         if FLAGS.linguistic:
             m_h = self.utterance_net(m_prev)
         else:
             m_h = Variable(type_constr.FloatTensor(batch_size, self.embedding_size).fill_(0))
+
         p_h = self.proposal_net(prev_proposal)
 
         h_t = torch.cat([c_h, m_h, p_h], -1)
@@ -227,14 +231,16 @@ class AgentModel(nn.Module):
         entropy_loss = 0
         nodes = []
 
+        # generate termination
         term_probs, term_node, term_a, entropy, term_matches_argmax_count = self.term_policy(h_t, testing=testing)
         nodes.append(term_node)
         entropy_loss -= entropy * self.term_entropy_reg
 
+        # generate utterance
         utterance = None
         if FLAGS.linguistic:
-            if (FLAGS.force_utility_comm == 'both' or
-                FLAGS.force_utility_comm == self.name):
+            if (FLAGS.force_utility_comm == 'both'
+                or FLAGS.force_utility_comm == self.name):
                 utt_matches_argmax_count = 0
                 utt_stochastic_draws = 0
                 utterance = type_constr.LongTensor(batch_size, 6).zero_()
@@ -248,6 +254,7 @@ class AgentModel(nn.Module):
             utt_stochastic_draws = 0
             utterance = type_constr.LongTensor(batch_size, 6).zero_()  # hard-coding 6 here is a bit hacky...
 
+        # generate proposal
         proposal_nodes, proposal, proposal_entropy, prop_matches_argmax_count, prop_stochastic_draws = self.proposal_policy(
             h_t, testing=testing)
         nodes += proposal_nodes
