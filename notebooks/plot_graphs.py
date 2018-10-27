@@ -39,13 +39,20 @@ def plot_one(logfile, title=None, min_y=None, max_y=None,
     # plt.savefig('/tmp/out-reward.png')
 
 
+def plot_folder(folder, **args):
+    logfiles = glob.glob('{}/*.log'.format(folder))
+    if not logfiles:
+        raise Exception('no files in this folder')
+
+    for logfile in logfiles:
+        plot_one(logfile, **args)
+
+
 def plot_average(logdir, title=None, min_y=None, max_y=None,
                  show_train=False, show_both=True):
-    # if not os.path.isabs(folder):
-        # folder = os.path.join(logdir, folder)
-    # if not os.isdir(folder):
-        # raise Exception('not a folder')
     logfiles = glob.glob('{}/*.log'.format(logdir))
+    if not logfiles:
+        raise Exception('no files in this folder')
 
     parsed = [parse_logfile(logfile) for logfile in logfiles]
 
@@ -77,7 +84,6 @@ def plot_average(logdir, title=None, min_y=None, max_y=None,
     plt.legend()
     plt.show()
     # plt.savefig('/tmp/out-reward.png')
-
 
 
 def parse_logfile(logfile):
