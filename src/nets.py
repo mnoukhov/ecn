@@ -211,12 +211,12 @@ class AgentModel(nn.Module):
         setting testing to True disables stochasticity: always picks the argmax
         cannot use this when training
         """
-        batch_size = pool.size()[0]
-        type_constr = torch.cuda if context.is_cuda else torch
-
         # parse all inputs
         context = torch.cat([pool, utility], 1)
         c_h = self.context_net(context)
+
+        batch_size = pool.size()[0]
+        type_constr = torch.cuda if context.is_cuda else torch
 
         if FLAGS.linguistic:
             m_h = self.utterance_net(m_prev)

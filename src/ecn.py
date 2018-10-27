@@ -14,6 +14,7 @@ import torch
 from absl import flags
 from torch import optim
 from torch.autograd import Variable
+from pprint import pprint
 
 from src.alive_sieve import AliveSieve, SievePlayback
 from src.nets import AgentModel
@@ -221,8 +222,9 @@ def run(args):
     - not run optimizers
     - not save model
     """
-    print(args)
-    print(FLAGS.flags_into_string())
+    pprint(args.__dict__)
+    pprint({flag.name: flag.value for flag in FLAGS.flags_by_module_dict()['src/main.py']})
+
     type_constr = torch.cuda if FLAGS.enable_cuda else torch
     if args.seed is not None:
         np.random.seed(args.seed)
