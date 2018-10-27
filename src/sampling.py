@@ -52,8 +52,8 @@ def sample_utility(batch_size,
 
     if normalize:
         #TODO this doesn't guarantee exactly norm_utility because of rounding
-        norm_utility = int(0.5 * max_utility * num_items)
-        util = util * norm_sum / np.sum(util, axis=1)[:,None]
+        norm_utility = FLAGS.item_max_utility
+        util = util * norm_utility / np.sum(util, axis=1)[:,None]
         util = util.round().astype(int)
 
     return util
