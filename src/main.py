@@ -52,8 +52,8 @@ def parse_flags(argv):
     parser.add_argument('--utterance-entropy-reg', type=float, default=0.001)
     parser.add_argument('--proposal-entropy-reg', type=float, default=0.05)
     #game
-    parser.add_argument('--render-every-episode', type=int, default=1)
-    parser.add_argument('--save-every-seconds', type=int, default=30)
+    parser.add_argument('--render-every-episode', type=int, default=200)
+    parser.add_argument('--save-every-episode', type=int, default=500)
     parser.add_argument('--testing', action='store_true', help='turn off learning; always pick argmax')
     parser.add_argument('--no-load', action='store_true')
     parser.add_argument('--no-save', action='store_true')

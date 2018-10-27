@@ -285,7 +285,6 @@ def run(args):
     prop_stochastic_draws = 0
     while episode < args.episodes:
         render = (episode % args.render_every_episode == 0)
-        # render = True
         batch = generate_training_batch(batch_size=args.batch_size,
                                         test_hashes=test_hashes,
                                         random_state=train_r)
@@ -403,17 +402,16 @@ def run(args):
             prop_matches_argmax_count = 0
             prop_stochastic_draws = 0
             count_sum = 0
-        if (not args.testing and
-            not args.no_save and
-            time.time() - last_save >= args.save_every_seconds):
-            save_model(
-                model_file=args.model_file,
-                agent_models=agent_models,
-                agent_opts=agent_opts,
-                start_time=start_time,
-                episode=episode)
+        if (not args.testing
+            and not args.no_save
+            and episode > 0
+            and episode % args.save_every_episode == 0):
+            save_model(model_file=args.model_file,
+                       agent_models=agent_models,
+                       agent_opts=agent_opts,
+                       start_time=start_time,
+                       episode=episode)
             print('saved model')
-            last_save = time.time()
 
         episode += 1
 
