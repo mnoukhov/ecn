@@ -222,8 +222,10 @@ def run(args):
     - not run optimizers
     - not save model
     """
-    pprint(args.__dict__)
-    pprint({flag.name: flag.value for flag in FLAGS.flags_by_module_dict()['src/main.py']})
+    flags_dict = {flag.name: flag.value for flag in FLAGS.flags_by_module_dict()['src/main.py']}
+    args_dict = args.__dict__
+    pprint(args_dict)
+    pprint(flags_dict)
 
     type_constr = torch.cuda if FLAGS.enable_cuda else torch
     if args.seed is not None:
@@ -274,7 +276,8 @@ def run(args):
         if not path.isdir(d):
             os.makedirs(d)
     f_log = open(args.log_file, 'w')
-    f_log.write('meta: %s\n' % json.dumps(args.__dict__))
+    all_args = {**args_dict, **flags_dict}
+    f_log.write('meta: %s\n' % json.dumps(all_args))
     last_save = time.time()
     baseline = type_constr.FloatTensor(3).fill_(0)
     term_matches_argmax_count = 0
