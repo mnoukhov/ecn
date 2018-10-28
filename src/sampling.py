@@ -44,17 +44,22 @@ def sample_utility(batch_size,
     num_zeros = batch_size
     #find batches with all 0s and regenerate
     while num_zeros > 0:
-        util[zero_idxs] = random_state.choice(utility_range, (num_zeros, num_items), replace=True)
+        new_util = random_state.choice(utility_range, (num_zeros, num_items), replace=True)
+
+        if normalize:
+            # this doesn't guarantee exactly norm_utility because of rounding
+            norm = FLAGS.item_max_utility
+            # avoid the divide by 0 issue
+            util_sums = np.sum(new_util, axis=1)[:,None]
+            nonzero = np.squeeze(util_sums != 0)
+            new_util[nonzero] = (new_util * norm)[nonzero] / util_sums[nonzero]
+            new_util = new_util.round().astype(int)
+
+        util[zero_idxs] = new_util
         # batched dot over the first dimension
         available_util = np.einsum('ij,ij->i', util, pool)
         zero_idxs = (available_util == 0)
         num_zeros = np.count_nonzero(zero_idxs)
-
-    if normalize:
-        #TODO this doesn't guarantee exactly norm_utility because of rounding
-        norm_utility = FLAGS.item_max_utility
-        util = util * norm_utility / np.sum(util, axis=1)[:,None]
-        util = util.round().astype(int)
 
     return util
 
