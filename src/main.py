@@ -14,8 +14,8 @@ flags.DEFINE_boolean('enable_cuda', True, 'executing on gpu')
 # game args
 flags.DEFINE_integer('utt_max_length', 6, 'max length of an utterance')
 flags.DEFINE_integer('utt_vocab_size', 11, 'size of utterance vocab')
-flags.DEFINE_integer('item_max_quantity', 6, 'max quantity of pool item')
-flags.DEFINE_integer('item_max_utility', 6, 'max utility of pool item')
+flags.DEFINE_integer('item_max_quantity', 5, 'max quantity of pool item')
+flags.DEFINE_integer('item_max_utility', 10, 'max utility of pool item')
 flags.DEFINE_integer('item_num_types', 3, 'number of pool item types')
 flags.DEFINE_integer('max_timesteps', 10, 'max number of timesteps')
 

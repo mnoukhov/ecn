@@ -93,7 +93,6 @@ class UtterancePolicy(nn.Module):
         h = h_t
         c = Variable(type_constr.FloatTensor(batch_size, self.embedding_size).fill_(0))
 
-        matches_argmax_count = 0
         last_token = type_constr.LongTensor(batch_size).fill_(0)
         utterance_nodes = []
         type_constr = torch.cuda if h_t.is_cuda else torch
@@ -120,7 +119,7 @@ class UtterancePolicy(nn.Module):
                 a = res_greedy
 
             matches_argmax = res_greedy == a
-            matches_argmax_count += matches_argmax.int().sum()
+            matches_argmax_count += matches_argmax.sum()
             stochastic_draws_count += batch_size
 
             if log_g is not None:
@@ -148,7 +147,6 @@ class ProposalPolicy(nn.Module):
         batch_size = x.size()[0]
         nodes = []
         entropy = 0
-        matches_argmax_count = 0
         type_constr = torch.cuda if x.is_cuda else torch
         matches_argmax_count = 0
         stochastic_draws = 0
@@ -170,7 +168,7 @@ class ProposalPolicy(nn.Module):
                 a = res_greedy
 
             matches_argmax = res_greedy == a
-            matches_argmax_count += matches_argmax.int().sum()
+            matches_argmax_count += matches_argmax.sum()
             stochastic_draws += batch_size
 
             if log_g is not None:
@@ -195,9 +193,10 @@ class AgentModel(nn.Module):
         self.utterance_entropy_reg = utterance_entropy_reg
         self.proposal_entropy_reg = proposal_entropy_reg
         self.embedding_size = embedding_size
-        self.context_net = NumberSequenceEncoder(num_values=FLAGS.item_max_quantity + 1)
+        context_size = max(FLAGS.item_max_quantity, FLAGS.item_max_utility) + 1
+        self.context_net = NumberSequenceEncoder(num_values=context_size)
         self.utterance_net = NumberSequenceEncoder(num_values=FLAGS.utt_vocab_size)
-        self.proposal_net = NumberSequenceEncoder(num_values=FLAGS.item_max_quantity + 1)
+        self.proposal_net = NumberSequenceEncoder(num_values=context_size)
         self.proposal_net.embedding = self.context_net.embedding
 
         self.combined_net = CombinedNet()
