@@ -36,10 +36,10 @@ def render_action(t, s, prop, term):
         print(' ACC')
     else:
         print(' ' + ''.join([str(v) for v in s.m_prev[0].view(-1).tolist()]), end='')
-        print(' %s:%s/%s %s:%s/%s %s:%s/%s' % (
-            utility[0][0].item(), prop[0][0].item(), s.pool[0][0].item(),
-            utility[0][1].item(), prop[0][1].item(), s.pool[0][1].item(),
-            utility[0][2].item(), prop[0][2].item(), s.pool[0][2].item(),
+        print(' %s/%s %s/%s %s/%s' % (
+            prop[0][0].item(), s.pool[0][0].item(),
+            prop[0][1].item(), s.pool[0][1].item(),
+            prop[0][2].item(), s.pool[0][2].item(),
         ), end='')
         print('')
         if t + 1 == s.N[0]:
@@ -135,6 +135,12 @@ def run_episode(
     ]
     if render:
         print('  ')
+        print('           ',
+              '{}   {}   {}'.format(*s.utilities[0][0].tolist()),
+              '      ',
+              '{} {} {}'.format(*s.pool[0].tolist()),
+              '          ',
+              '{}   {}   {}'.format(*s.utilities[0][1].tolist()))
     for t in range(FLAGS.max_timesteps):
         if FLAGS.linguistic:
             _prev_message = s.m_prev
@@ -194,7 +200,7 @@ def run_episode(
         sieve.self_sieve_()
 
     if render:
-        print('  r: %.2f' % rewards[0].mean())
+        print(' rewards: {:2.2f} {:2.2f} {:2.2f}'.format(*rewards[0].tolist()))
         print('  ')
 
     return actions_by_timestep, rewards, num_steps, alive_masks, entropy_loss_by_agent, \
