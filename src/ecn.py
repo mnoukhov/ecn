@@ -341,7 +341,7 @@ def run(args):
                 loss.backward()
                 agent_opts[i].step()
 
-        rewards_sum += rewards.sum(0)
+        rewards_sum += rewards.detach().sum(0)
         steps_sum += steps.sum()
         baseline = 0.7 * baseline + 0.3 * rewards.mean(0)
         count_sum += args.batch_size
@@ -381,9 +381,9 @@ def run(args):
                 baseline_str,
                 int(count_sum / time_since_last),
                 steps_sum.item() / count_sum,
-                term_matches_argmax_count.item() / num_policy_runs.item(),
+                term_matches_argmax_count / num_policy_runs,
                 safe_div(utt_matches_argmax_count, utt_stochastic_draws),
-                prop_matches_argmax_count.item() / prop_stochastic_draws
+                prop_matches_argmax_count / prop_stochastic_draws
             ))
             f_log.write(json.dumps({
                 'episode': episode,
@@ -396,9 +396,9 @@ def run(args):
                 'avg_steps': (steps_sum / count_sum).item(),
                 'games_sec': (count_sum / time_since_last),
                 'elapsed': time.time() - start_time,
-                'argmaxp_term': (term_matches_argmax_count / num_policy_runs).item(),
+                'argmaxp_term': term_matches_argmax_count / num_policy_runs,
                 'argmaxp_utt': safe_div(utt_matches_argmax_count, utt_stochastic_draws),
-                'argmaxp_prop': (prop_matches_argmax_count / prop_stochastic_draws).item()
+                'argmaxp_prop': prop_matches_argmax_count / prop_stochastic_draws,
             }) + '\n')
             f_log.flush()
             last_print = time.time()
@@ -411,6 +411,7 @@ def run(args):
             prop_matches_argmax_count = 0
             prop_stochastic_draws = 0
             count_sum = 0
+
         if (not args.testing
             and not args.no_save
             and episode > 0

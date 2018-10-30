@@ -32,6 +32,7 @@ flags.DEFINE_boolean('utility_normalize', True, 'sum of an agent utilities is ~m
 flags.DEFINE_boolean('utility_nonzero', False, 'force min utility of 1 for every object')
 flags.DEFINE_enum('force_utility_comm', None, ['A', 'B', 'both'], 'force an agent to communicate its utilities')
 flags.DEFINE_float('prosociality', 0, 'alpha of prosociality for selfish agents')
+flags.DEFINE_boolean('force_masking_comm', False, 'force agents to communicate by masking their utilities')
 
 
 def parse_flags(argv):

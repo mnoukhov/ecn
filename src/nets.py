@@ -67,7 +67,7 @@ class TermPolicy(nn.Module):
             a = res_greedy
 
         matches_greedy = res_greedy == a
-        matches_greedy_count = matches_greedy.int().sum()
+        matches_greedy_count = matches_greedy.sum().item()
         term_probs = term_probs + eps
         entropy = - (term_probs * term_probs.log()).sum(1).sum()
         return term_probs, log_g, a.byte(), entropy, matches_greedy_count
@@ -119,7 +119,7 @@ class UtterancePolicy(nn.Module):
                 a = res_greedy
 
             matches_argmax = res_greedy == a
-            matches_argmax_count += matches_argmax.sum()
+            matches_argmax_count += matches_argmax.sum().item()
             stochastic_draws_count += batch_size
 
             if log_g is not None:
@@ -168,7 +168,7 @@ class ProposalPolicy(nn.Module):
                 a = res_greedy
 
             matches_argmax = res_greedy == a
-            matches_argmax_count += matches_argmax.sum()
+            matches_argmax_count += matches_argmax.sum().item()
             stochastic_draws += batch_size
 
             if log_g is not None:
@@ -202,8 +202,14 @@ class AgentModel(nn.Module):
         self.combined_net = CombinedNet()
 
         self.term_policy = TermPolicy()
-        self.utterance_policy = UtterancePolicy(FLAGS.utt_max_length)
-        self.proposal_policy = ProposalPolicy()
+        self.proposal_policy = ProposalPolicy(num_counts=FLAGS.item_max_quantity+1,
+                                              num_items=FLAGS.item_num_types)
+        if FLAGS.force_masking_comm:
+            utterance_num_tokens = 2
+        else:
+            utterance_num_tokens = FLAGS.utt_vocab_size
+        self.utterance_policy = UtterancePolicy(max_len=FLAGS.utt_max_length,
+                                                num_tokens=utterance_num_tokens)
 
     def forward(self, pool, utility, m_prev, prev_proposal, testing):
         """
@@ -236,14 +242,19 @@ class AgentModel(nn.Module):
         entropy_loss -= entropy * self.term_entropy_reg
 
         # generate utterance
-        utterance = None
+        utterance = type_constr.LongTensor(batch_size, FLAGS.utt_max_length).zero_()
         if FLAGS.linguistic:
             if (FLAGS.force_utility_comm == 'both'
                 or FLAGS.force_utility_comm == self.name):
                 utt_matches_argmax_count = 0
                 utt_stochastic_draws = 0
-                utterance = type_constr.LongTensor(batch_size, 6).zero_()
                 utterance[:,:3] = utility
+            elif FLAGS.force_masking_comm:
+                (utterance_nodes, utterance_mask, utterance_entropy,
+                 utt_matches_argmax_count, utt_stochastic_draws) = self.utterance_policy(h_t, testing=testing)
+                nodes += utterance_nodes
+                entropy_loss -= self.utterance_entropy_reg * utterance_entropy
+                utterance[:,:3] = utterance_mask[:,:3] * utility
             else:
                 utterance_nodes, utterance, utterance_entropy, utt_matches_argmax_count, utt_stochastic_draws = self.utterance_policy( h_t, testing=testing)
                 nodes += utterance_nodes
@@ -251,7 +262,6 @@ class AgentModel(nn.Module):
         else:
             utt_matches_argmax_count = 0
             utt_stochastic_draws = 0
-            utterance = type_constr.LongTensor(batch_size, 6).zero_()  # hard-coding 6 here is a bit hacky...
 
         # generate proposal
         proposal_nodes, proposal, proposal_entropy, prop_matches_argmax_count, prop_stochastic_draws = self.proposal_policy(
