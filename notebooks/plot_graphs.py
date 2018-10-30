@@ -115,12 +115,21 @@ def parse_logfile(logfile):
             if line == '':
                 continue
 
-            d = json.loads(line)
+            try:
+                d = json.loads(line)
+            except:
+                continue
+            
+            if not all(reward_name in d for reward_name in json_to_name):
+                continue
+                
+
             for item, value in d.items():
                 name = json_to_name.get(item)
                 if name:
                     rewards[name].append(float(value))
-
+        
+    print(n)
     return rewards
 
 

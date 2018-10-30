@@ -134,5 +134,5 @@ old-models/
 merge.yaml
 merge.sh
 
-notebooks/*.ipynb
+*.ipynb
 
