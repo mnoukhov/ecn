@@ -422,6 +422,7 @@ def run(args):
             prop_matches_argmax_count = 0
             prop_stochastic_draws = 0
             count_sum = 0
+            utt_unmasked_count = [0,0]
 
         if (not args.testing
             and not args.no_save
