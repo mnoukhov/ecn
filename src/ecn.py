@@ -278,9 +278,6 @@ def run(args):
     rewards_sum = type_constr.FloatTensor(3).fill_(0)
     steps_sum = 0
     count_sum = 0
-    for d in ['logs', 'model_saves']:
-        if not path.isdir(d):
-            os.makedirs(d)
     f_log = open(args.log_file, 'w')
     all_args = {**args_dict, **flags_dict}
     f_log.write('meta: %s\n' % json.dumps(all_args))
@@ -363,22 +360,21 @@ def run(args):
                      render=True,
                      testing=True)
                 test_rewards_sum += test_rewards.sum(0)
+
+            time_since_last = time.time() - last_print
+
+            rewards_str = '%.2f,%.2f,%.2f' % (rewards_sum[0] / count_sum,
+                                              rewards_sum[1] / count_sum,
+                                              rewards_sum[2] / count_sum)
             test_rewards_str = '%.2f,%.2f,%.2f' % (test_rewards_sum[0] / test_count_sum,
                                                    test_rewards_sum[1] / test_count_sum,
                                                    test_rewards_sum[2] / test_count_sum)
-            print('test rewards = {}'.format(test_rewards_str))
-
-            time_since_last = time.time() - last_print
-            if FLAGS.prosocial:
-                baseline_str = '%.2f' % baseline[2]
-                # rewards_str = '%.2f' % (rewards_sum[2] / count_sum)
-            else:
-                baseline_str = '%.2f,%.2f' % (baseline[0], baseline[1])
-            rewards_str = '%.2f,%.2f,%.2f' % (rewards_sum[0] / count_sum, rewards_sum[1] / count_sum, rewards_sum[2] / count_sum)
-            print('e=%s train=%s b=%s games/sec %s avg steps %.4f argmaxp term=%.4f utt=%.4f prop=%.4f' % (
+            baseline_str = '%.2f,%.2f,%.2f' % (baseline[0], baseline[1], baseline[2])
+            print('test  {}'.format(test_rewards_str))
+            print('train {}'.format(rewards_str))
+            print('base  {}'.format(baseline_str))
+            print('ep {}, {} games/sec, {} avg steps, argmaxp term={:4.4f} utt={:4.4f} prop={:4.4f}'.format(
                 episode,
-                rewards_str,
-                baseline_str,
                 int(count_sum / time_since_last),
                 steps_sum.item() / count_sum,
                 term_matches_argmax_count / num_policy_runs,
