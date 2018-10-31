@@ -128,6 +128,7 @@ def run_episode(
     num_policy_runs = 0
     prop_matches_argmax_count = 0
     prop_stochastic_draws = 0
+    utt_unmasked_count = [0,0]
 
     entropy_loss_by_agent = [
         Variable(type_constr.FloatTensor(1).fill_(0)),
@@ -156,7 +157,7 @@ def run_episode(
         agent_model = agent_models[agent]
         (nodes, term_a, s.m_prev, this_proposal, _entropy_loss,
          _term_matches_argmax_count, _utt_matches_argmax_count, _utt_stochastic_draws,
-         _prop_matches_argmax_count, _prop_stochastic_draws) = agent_model(
+         _prop_matches_argmax_count, _prop_stochastic_draws, _utt_unmasked_count) = agent_model(
              pool=Variable(s.pool),
              utility=Variable(s.utilities[:, agent]),
              m_prev=Variable(_prev_message),
@@ -171,6 +172,7 @@ def run_episode(
         utt_stochastic_draws += _utt_stochastic_draws
         prop_matches_argmax_count += _prop_matches_argmax_count
         prop_stochastic_draws += _prop_stochastic_draws
+        utt_unmasked_count[agent] += _utt_unmasked_count
 
         if render and sieve.out_idxes[0] == 0:
             render_action(
@@ -205,7 +207,7 @@ def run_episode(
 
     return actions_by_timestep, rewards, num_steps, alive_masks, entropy_loss_by_agent, \
         term_matches_argmax_count, num_policy_runs, utt_matches_argmax_count, utt_stochastic_draws, \
-        prop_matches_argmax_count, prop_stochastic_draws
+        prop_matches_argmax_count, prop_stochastic_draws, utt_unmasked_count
 
 
 def safe_div(a, b):
@@ -289,6 +291,7 @@ def run(args):
     utt_stochastic_draws = 0
     prop_matches_argmax_count = 0
     prop_stochastic_draws = 0
+    utt_unmasked_count = [0,0]
     while episode < args.episodes:
         render = (episode % args.render_every_episode == 0)
         batch = generate_training_batch(batch_size=args.batch_size,
@@ -296,7 +299,7 @@ def run(args):
                                         random_state=train_r)
         (actions, rewards, steps, alive_masks, entropy_loss_by_agent,
          _term_matches_argmax_count, _num_policy_runs, _utt_matches_argmax_count, _utt_stochastic_draws,
-         _prop_matches_argmax_count, _prop_stochastic_draws) = run_episode(
+         _prop_matches_argmax_count, _prop_stochastic_draws, _utt_unmasked_count) = run_episode(
              batch=batch,
              enable_cuda=FLAGS.enable_cuda,
              agent_models=agent_models,
@@ -309,6 +312,8 @@ def run(args):
         num_policy_runs += _num_policy_runs
         prop_matches_argmax_count += _prop_matches_argmax_count
         prop_stochastic_draws += _prop_stochastic_draws
+        utt_unmasked_count[0] += _utt_unmasked_count[0]
+        utt_unmasked_count[1] += _utt_unmasked_count[1]
 
         if not args.testing:
             for i in range(2):
@@ -350,9 +355,10 @@ def run(args):
             test_rewards_sum = np.zeros(3)
             test_count_sum = len(test_batches) * args.batch_size
             for test_batch in test_batches:
+                # TODO this stuff isn't being used
                 (actions, test_rewards, steps, alive_masks, entropy_loss_by_agent,
                  _term_matches_argmax_count, _num_policy_runs, _utt_matches_argmax_count, _utt_stochastic_draws,
-                 _prop_matches_argmax_count, _prop_stochastic_draws) = run_episode(
+                 _prop_matches_argmax_count, _prop_stochastic_draws, _) = run_episode(
                      batch=test_batch,
                      enable_cuda=FLAGS.enable_cuda,
                      agent_models=agent_models,
@@ -362,7 +368,6 @@ def run(args):
                 test_rewards_sum += test_rewards.sum(0)
 
             time_since_last = time.time() - last_print
-
             rewards_str = '%.2f,%.2f,%.2f' % (rewards_sum[0] / count_sum,
                                               rewards_sum[1] / count_sum,
                                               rewards_sum[2] / count_sum)
@@ -373,14 +378,22 @@ def run(args):
             print('test  {}'.format(test_rewards_str))
             print('train {}'.format(rewards_str))
             print('base  {}'.format(baseline_str))
-            print('ep {}, {} games/sec, {} avg steps, argmaxp term={:4.4f} utt={:4.4f} prop={:4.4f}'.format(
+            print('ep {}, {} games/sec, {:2.2f} avg steps'.format(
                 episode,
                 int(count_sum / time_since_last),
-                steps_sum.item() / count_sum,
+                steps_sum.item() / count_sum
+            ))
+            print('argmaxp term={:4.4f} utt={:4.4f} prop={:4.4f}'.format(
                 term_matches_argmax_count / num_policy_runs,
                 safe_div(utt_matches_argmax_count, utt_stochastic_draws),
                 prop_matches_argmax_count / prop_stochastic_draws
             ))
+            if FLAGS.force_masking_comm:
+                print('utt unmasked {:2.2f},{:2.2f}'.format(
+                    utt_unmasked_count[0] / (3 * num_policy_runs),
+                    utt_unmasked_count[1] / (3 * num_policy_runs)
+                ))
+
             f_log.write(json.dumps({
                 'episode': episode,
                 'avg_reward_A': (rewards_sum[0] / count_sum).item(),
@@ -395,6 +408,8 @@ def run(args):
                 'argmaxp_term': term_matches_argmax_count / num_policy_runs,
                 'argmaxp_utt': safe_div(utt_matches_argmax_count, utt_stochastic_draws),
                 'argmaxp_prop': prop_matches_argmax_count / prop_stochastic_draws,
+                'utt_unmasked_A': utt_unmasked_count[0] / (3 * num_policy_runs),
+                'utt_unmasked_B': utt_unmasked_count[1] / (3 * num_policy_runs),
             }) + '\n')
             f_log.flush()
             last_print = time.time()
