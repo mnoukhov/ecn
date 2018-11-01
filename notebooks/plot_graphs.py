@@ -16,8 +16,10 @@ json_to_name = {
     'test_reward': 'test reward both',
     'test_reward_A': 'test reward A',
     'test_reward_B': 'test reward B',
-    'utt_unmasked_A': 'unmasked A',
-    'utt_unmasked_B': 'unmasked B',
+    'utt_unmasked_A': 'train unmasked A',
+    'utt_unmasked_B': 'train unmasked B',
+    'test_unmasked_A': 'test unmasked A',
+    'test_unmasked_B': 'test unmasked B',
 }
 
 def plot_one(logfile, **args):
@@ -25,6 +27,7 @@ def plot_one(logfile, **args):
     epochs = rewards.pop('epochs')
     epochs = np.array(epochs) / 1000
     plot(epochs, rewards, **args)
+
 
 def plot(epochs, rewards, title=None, min_y=None, max_y=None,
          show_train=False, show_both=True, show_unmasked=False):
@@ -105,10 +108,9 @@ def parse_logfile(logfile):
             try:
                 d = json.loads(line)
             except:
+                print('failed on line {}'.format(n))
                 continue
 
-            # if not all(reward_name in d for reward_name in json_to_name):
-                # continue
 
             for item, value in d.items():
                 name = json_to_name.get(item)

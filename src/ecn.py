@@ -354,11 +354,13 @@ def run(args):
             """
             test_rewards_sum = np.zeros(3)
             test_count_sum = len(test_batches) * args.batch_size
+            test_num_policy_runs = 0
+            test_unmasked_count = [0,0]
             for test_batch in test_batches:
                 # TODO this stuff isn't being used
                 (actions, test_rewards, steps, alive_masks, entropy_loss_by_agent,
-                 _term_matches_argmax_count, _num_policy_runs, _utt_matches_argmax_count, _utt_stochastic_draws,
-                 _prop_matches_argmax_count, _prop_stochastic_draws, _) = run_episode(
+                 _term_matches_argmax_count, _test_num_policy_runs, _utt_matches_argmax_count, _utt_stochastic_draws,
+                 _prop_matches_argmax_count, _prop_stochastic_draws, _test_unmasked_count) = run_episode(
                      batch=test_batch,
                      enable_cuda=FLAGS.enable_cuda,
                      agent_models=agent_models,
@@ -366,6 +368,9 @@ def run(args):
                      render=True,
                      testing=True)
                 test_rewards_sum += test_rewards.sum(0)
+                test_num_policy_runs += _test_num_policy_runs
+                test_unmasked_count[0] += _test_unmasked_count[0]
+                test_unmasked_count[1] += _test_unmasked_count[1]
 
             time_since_last = time.time() - last_print
             rewards_str = '%.2f,%.2f,%.2f' % (rewards_sum[0] / count_sum,
@@ -410,6 +415,8 @@ def run(args):
                 'argmaxp_prop': prop_matches_argmax_count / prop_stochastic_draws,
                 'utt_unmasked_A': utt_unmasked_count[0] / (3 * num_policy_runs),
                 'utt_unmasked_B': utt_unmasked_count[1] / (3 * num_policy_runs),
+                'test_unmasked_A': test_unmasked_count[0] / (3 * test_num_policy_runs),
+                'test_unmasked_B': test_unmasked_count[1] / (3 * test_num_policy_runs),
             }) + '\n')
             f_log.flush()
             last_print = time.time()
