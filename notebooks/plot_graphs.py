@@ -8,8 +8,20 @@ import numpy as np
 import glob
 
 
+json_to_name = {
+    'episode': 'epochs',
+    'avg_reward_0': 'train reward both',
+    'avg_reward_A': 'train reward A',
+    'avg_reward_B': 'train reward B',
+    'test_reward': 'test reward both',
+    'test_reward_A': 'test reward A',
+    'test_reward_B': 'test reward B',
+    'utt_unmasked_A': 'unmasked A',
+    'utt_unmasked_B': 'unmasked B',
+}
+
 def plot_one(logfile, title=None, min_y=None, max_y=None,
-             show_train=False, show_both=True):
+             show_train=False, show_both=True, show_unmasked=False):
     rewards = parse_logfile(logfile)
     epochs = rewards.pop('epochs')
     epochs = np.array(epochs) / 1000
@@ -26,6 +38,8 @@ def plot_one(logfile, title=None, min_y=None, max_y=None,
             continue
         elif not show_both and ('both' in name):
             continue
+        elif not show_unmasked and ('unmasked' in name):
+            continue
         else:
             plt.plot(epochs, values, label=name)
 
@@ -39,10 +53,16 @@ def plot_one(logfile, title=None, min_y=None, max_y=None,
     # plt.savefig('/tmp/out-reward.png')
 
 
-def plot_folder(folder, **args):
-    logfiles = glob.glob('{}/*.log'.format(folder))
+def plot_folder(logdir, **args):
+    fileglob = '{}/*.log'.format(logdir)
+    plot_glob(fileglob, **args)
+
+
+def plot_glob(fileglob, **args):
+    print('glob {}'.format(fileglob))
+    logfiles = glob.glob(fileglob)
     if not logfiles:
-        raise Exception('no files in this folder')
+        raise Exception('no file matches glob')
 
     for logfile in logfiles:
         plot_one(logfile, **args)
@@ -66,10 +86,14 @@ def plot_average(logdir, title=None, min_y=None, max_y=None,
             continue
         elif not show_both and ('both' in name):
             continue
-        else:
-            values_arr = np.array([log[name][:length] for log in parsed])
-            avg_values = values_arr.mean(axis=0)
-            plt.plot(epochs, avg_values, label=name)
+
+        values_arr = np.array([log[name][:length] for log in parsed])
+        avg_values = values_arr.mean(axis=0)
+
+        if not avg_values.any():
+            continue
+
+        plt.plot(epochs, avg_values, label=name)
 
     if title:
         plt.title(title)
@@ -87,24 +111,7 @@ def plot_average(logdir, title=None, min_y=None, max_y=None,
 
 
 def parse_logfile(logfile):
-    rewards = {
-        'epochs': [],
-        'train reward both': [],
-        'train reward A': [],
-        'train reward B': [],
-        'test reward both': [],
-        'test reward A': [],
-        'test reward B': [],
-    }
-    json_to_name = {
-        'episode': 'epochs',
-        'avg_reward_0': 'train reward both',
-        'avg_reward_A': 'train reward A',
-        'avg_reward_B': 'train reward B',
-        'test_reward': 'test reward both',
-        'test_reward_A': 'test reward A',
-        'test_reward_B': 'test reward B',
-    }
+    rewards = {name: [] for name in json_to_name.values()}
 
     with open(logfile, 'r') as f:
         for n, line in enumerate(f):
@@ -119,16 +126,15 @@ def parse_logfile(logfile):
                 d = json.loads(line)
             except:
                 continue
-            
-            if not all(reward_name in d for reward_name in json_to_name):
-                continue
-                
+
+            # if not all(reward_name in d for reward_name in json_to_name):
+                # continue
 
             for item, value in d.items():
                 name = json_to_name.get(item)
                 if name:
                     rewards[name].append(float(value))
-        
+
     print(n)
     return rewards
 
@@ -143,4 +149,4 @@ if __name__ == '__main__':
     parser.add_argument('--show_both', action='store_true')
 
     args = parser.parse_args()
-    plot_average(**vars(args))
+    plot_folder(**vars(args))
