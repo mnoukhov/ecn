@@ -20,19 +20,21 @@ json_to_name = {
     'utt_unmasked_B': 'unmasked B',
 }
 
-def plot_one(logfile, title=None, min_y=None, max_y=None,
-             show_train=False, show_both=True, show_unmasked=False):
+def plot_one(logfile, **args):
     rewards = parse_logfile(logfile)
     epochs = rewards.pop('epochs')
     epochs = np.array(epochs) / 1000
+    plot(epochs, rewards, **args)
 
+def plot(epochs, rewards, title=None, min_y=None, max_y=None,
+         show_train=False, show_both=True, show_unmasked=False):
     if min_y is None:
         min_y = 0
     if max_y is not None:
         plt.ylim([min_y, max_y])
 
     for name, values in rewards.items():
-        if not values:
+        if not any(values):
             continue
         elif not show_train and ('train' in name):
             continue
@@ -68,8 +70,7 @@ def plot_glob(fileglob, **args):
         plot_one(logfile, **args)
 
 
-def plot_average(logdir, title=None, min_y=None, max_y=None,
-                 show_train=False, show_both=True):
+def plot_average(logdir, **args):
     logfiles = glob.glob('{}/*.log'.format(logdir))
     if not logfiles:
         raise Exception('no files in this folder')
@@ -80,34 +81,13 @@ def plot_average(logdir, title=None, min_y=None, max_y=None,
     epochs = [log.pop('epochs') for log in parsed]
     length = min(len(epoch) for epoch in epochs)
     epochs = np.array(epochs[0][:length]) / 1000
+    avg_rewards = {}
 
-    for name in parsed[0].keys():
-        if not show_train and ('train' in name):
-            continue
-        elif not show_both and ('both' in name):
-            continue
+    for reward_name in parsed[0].keys():
+        reward_list = [log[reward_name][:length] for log in parsed]
+        avg_rewards[reward_name] = np.array(reward_list).mean(axis=0)
 
-        values_arr = np.array([log[name][:length] for log in parsed])
-        avg_values = values_arr.mean(axis=0)
-
-        if not avg_values.any():
-            continue
-
-        plt.plot(epochs, avg_values, label=name)
-
-    if title:
-        plt.title(title)
-
-    if min_y is None:
-        min_y = 0
-    if max_y is not None:
-        plt.ylim([min_y, max_y])
-
-    plt.xlabel('Episodes of 128 games (thousands)')
-    plt.ylabel('Normalized Reward')
-    plt.legend()
-    plt.show()
-    # plt.savefig('/tmp/out-reward.png')
+    plot(epochs, avg_rewards, **args)
 
 
 def parse_logfile(logfile):
@@ -149,4 +129,4 @@ if __name__ == '__main__':
     parser.add_argument('--show_both', action='store_true')
 
     args = parser.parse_args()
-    plot_folder(**vars(args))
+    plot_average(**vars(args))
