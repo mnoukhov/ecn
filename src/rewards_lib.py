@@ -74,7 +74,7 @@ def calc_rewards(t, s, term, enable_cuda):
             elif FLAGS.prosociality > 0:
                 alpha = FLAGS.prosociality
                 actual =  (1 - alpha) * raw_rewards[b][i] + alpha * raw_rewards[b][1-i]
-                alpha_max_utility, _ = (utilities[b].t() * torch.Tensor([alpha, 1-alpha])).max(1)
+                alpha_max_utility, _ = (utilities[b].t() * type_constr.FloatTensor([alpha, 1-alpha])).max(1)
                 available = torch.matmul(alpha_max_utility, pool[b])
                 rewards_batch[b][i] = actual / available
             else:
