@@ -16,10 +16,25 @@ json_to_name = {
     'test_reward': 'test reward both',
     'test_reward_A': 'test reward A',
     'test_reward_B': 'test reward B',
-    'utt_unmasked_A': 'train unmasked A',
-    'utt_unmasked_B': 'train unmasked B',
-    'test_unmasked_A': 'test unmasked A',
-    'test_unmasked_B': 'test unmasked B',
+    'utt_unmasked_A': 'train unmasked utt A',
+    'utt_unmasked_B': 'train unmasked utt B',
+    'test_unmasked_A': 'test unmasked utt A',
+    'test_unmasked_B': 'test unmasked utt B',
+    'utt_unmasked_A_first': 'train unmasked utt first A',
+    'utt_unmasked_B_first': 'train unmasked utt first B',
+    'test_unmasked_A_first': 'test unmasked utt first A',
+    'test_unmasked_B_first': 'test unmasked utt first B',
+    'prop_unmasked_A': 'train prop unmasked A',
+    'prop_unmasked_B': 'train prop unmasked B',
+    'test_prop_unmasked_A': 'test prop unmasked A',
+    'test_prop_unmasked_B': 'test prop unmasked B',
+    'prop_unmasked_A_first': 'train prop unmasked first A',
+    'prop_unmasked_B_first': 'train prop unmasked first B',
+    'test_prop_unmasked_A_first': 'test prop unmasked first A',
+    'test_prop_unmasked_B_first': 'test prop unmasked first B',
+    'argmaxp_term': 'term argmax prob',
+    'argmaxp_utt': 'utt argmax prob',
+    'argmaxp_prop': 'prop argmax prob',
 }
 
 def plot_one(logfile, **args):
@@ -30,7 +45,8 @@ def plot_one(logfile, **args):
 
 
 def plot(epochs, rewards, title=None, min_y=None, max_y=None,
-         show_train=False, show_both=True, show_unmasked=False):
+         show_train=False, show_both=True, show_unmasked=False,
+         show_argmax=False):
     if min_y is None:
         min_y = 0
     if max_y is not None:
@@ -39,12 +55,28 @@ def plot(epochs, rewards, title=None, min_y=None, max_y=None,
     for name, values in rewards.items():
         if not any(values):
             continue
-        elif not show_train and ('train' in name):
+        elif ('train' in name and 'reward' in name) and not show_train:
             continue
-        elif not show_both and ('both' in name):
+        elif ('both' in name) and not show_both:
             continue
-        elif not show_unmasked and ('unmasked' in name):
+        elif ('argmax' in name) and not show_argmax:
             continue
+        elif 'unmasked' in name:
+            if not show_unmasked:
+                continue
+            elif ('utt' in name) and not ('utt' in show_unmasked):
+                continue
+            elif ('prop' in name) and not ('prop' in show_unmasked):
+                continue
+            elif ('test' in name) and not ('test' in show_unmasked):
+                continue
+            elif ('train' in name) and not ('train' in show_unmasked):
+                continue
+
+            if ('first' in name) and ('first' in show_unmasked):
+                plt.plot(epochs, values, label=name)
+            elif ('avg' in show_unmasked):
+                plt.plot(epochs, values, label=name)
         else:
             plt.plot(epochs, values, label=name)
 
@@ -69,7 +101,7 @@ def plot_glob(fileglob, **args):
     if not logfiles:
         raise Exception('no file matches glob')
 
-    for logfile in logfiles:
+    for logfile in sorted(logfiles):
         plot_one(logfile, **args)
 
 
@@ -123,12 +155,13 @@ def parse_logfile(logfile):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('logdir', type=str)
+    parser.add_argument('logfile', type=str)
     parser.add_argument('--title', type=str)
     parser.add_argument('--min-y', type=float)
     parser.add_argument('--max-y', type=float)
     parser.add_argument('--show_train', action='store_true')
     parser.add_argument('--show_both', action='store_true')
+    parser.add_argument('--show_unmasked', type=str)
 
     args = parser.parse_args()
-    plot_average(**vars(args))
+    plot_one(**vars(args))

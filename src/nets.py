@@ -241,11 +241,18 @@ class AgentModel(nn.Module):
         nodes.append(term_node)
         entropy_loss -= entropy * self.term_entropy_reg
 
+        # generate proposal
+        proposal_nodes, proposal, proposal_entropy, prop_matches_argmax_count, prop_stochastic_draws = self.proposal_policy(
+            h_t, testing=testing)
+        nodes += proposal_nodes
+        entropy_loss -= self.proposal_entropy_reg * proposal_entropy
+
         # generate utterance
         utterance = type_constr.LongTensor(batch_size, FLAGS.utt_max_length).zero_()
         utt_matches_argmax_count = 0
         utt_stochastic_draws = 0
-        utt_unmasked_count = 0
+        utt_mask_count = 0
+        prop_mask_count = 0
         if FLAGS.linguistic:
             if (FLAGS.force_utility_comm == 'both'
                 or FLAGS.force_utility_comm == self.name):
@@ -256,20 +263,18 @@ class AgentModel(nn.Module):
                 nodes += utterance_nodes
                 entropy_loss -= self.utterance_entropy_reg * utterance_entropy
                 utterance[:,:3] = utterance_mask[:,:3] * utility
-                utt_unmasked_count = torch.sum(utterance_mask[:,:3]).item()
+                if not FLAGS.proposal:
+                    utterance[:,3:] = utterance_mask[:,3:] * proposal
+                    prop_mask_count = torch.sum(utterance_mask[:,3:]).item()
+                utt_mask_count = torch.sum(utterance_mask[:,:3]).item()
             else:
                 utterance_nodes, utterance, utterance_entropy, utt_matches_argmax_count, utt_stochastic_draws = self.utterance_policy( h_t, testing=testing)
                 nodes += utterance_nodes
                 entropy_loss -= self.utterance_entropy_reg * utterance_entropy
 
-        # generate proposal
-        proposal_nodes, proposal, proposal_entropy, prop_matches_argmax_count, prop_stochastic_draws = self.proposal_policy(
-            h_t, testing=testing)
-        nodes += proposal_nodes
-        entropy_loss -= self.proposal_entropy_reg * proposal_entropy
 
         return (nodes, term_a, utterance, proposal, entropy_loss,
                 term_matches_argmax_count,
                 utt_matches_argmax_count, utt_stochastic_draws,
                 prop_matches_argmax_count, prop_stochastic_draws,
-                utt_unmasked_count)
+                utt_mask_count, prop_mask_count)

@@ -33,6 +33,7 @@ flags.DEFINE_boolean('utility_nonzero', False, 'force min utility of 1 for every
 flags.DEFINE_enum('force_utility_comm', None, ['A', 'B', 'both'], 'force an agent to communicate its utilities')
 flags.DEFINE_float('prosociality', 0, 'alpha of prosociality for selfish agents')
 flags.DEFINE_boolean('force_masking_comm', False, 'force agents to communicate by masking their utilities')
+flags.DEFINE_boolean('random_start', False, 'randomly choose which agent starts the negotiation')
 
 
 def parse_flags(argv):

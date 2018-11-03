@@ -6,8 +6,8 @@ python src/main.py \
     --noproposal \
     --linguistic \
     --enable_cuda \
-    --term-entropy-reg 0.05 \
-    --utterance-entropy-reg 0.0001 \
+    --term-entropy-reg 0.2 \
+    --utterance-entropy-reg 0.001 \
     --proposal-entropy-reg 0.005 \
     --episodes 250000 \
     $@
