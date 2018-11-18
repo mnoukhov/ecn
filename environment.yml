@@ -1,4 +1,4 @@
-name: emerge
+name: ecn
 channels:
 - pytorch
 - defaults
@@ -10,3 +10,4 @@ dependencies:
 - matplotlib
 - pytest
 - yaml
+- absl-py

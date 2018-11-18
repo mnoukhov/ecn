@@ -1,10 +1,13 @@
+#TODO
+# check num_tokens in UtterancePolicy
+
 import torch
+import torch.nn.functional as F
+from absl import flags
 from torch import nn, autograd
 from torch.autograd import Variable
-import torch.nn.functional as F
 
-from src.args import (UTT_VOCAB_SIZE,
-                      UTT_MAX_LEN)
+FLAGS = flags.FLAGS
 
 
 class NumberSequenceEncoder(nn.Module):
@@ -49,7 +52,7 @@ class TermPolicy(nn.Module):
 
     def forward(self, thoughtvector, testing, eps=1e-8):
         logits = self.h1(thoughtvector)
-        term_probs = F.sigmoid(logits)
+        term_probs = torch.sigmoid(logits)
         matches_argmax_count = 0
 
         res_greedy = (term_probs.data >= 0.5).view(-1, 1).float()
@@ -64,14 +67,14 @@ class TermPolicy(nn.Module):
             a = res_greedy
 
         matches_greedy = res_greedy == a
-        matches_greedy_count = matches_greedy.int().sum()
+        matches_greedy_count = matches_greedy.sum().item()
         term_probs = term_probs + eps
         entropy = - (term_probs * term_probs.log()).sum(1).sum()
         return term_probs, log_g, a.byte(), entropy, matches_greedy_count
 
 
 class UtterancePolicy(nn.Module):
-    def __init__(self, embedding_size=100, num_tokens=10, max_len=6):
+    def __init__(self, max_len, embedding_size=100, num_tokens=10):
         super().__init__()
         self.embedding_size = embedding_size
         self.num_tokens = num_tokens
@@ -90,7 +93,6 @@ class UtterancePolicy(nn.Module):
         h = h_t
         c = Variable(type_constr.FloatTensor(batch_size, self.embedding_size).fill_(0))
 
-        matches_argmax_count = 0
         last_token = type_constr.LongTensor(batch_size).fill_(0)
         utterance_nodes = []
         type_constr = torch.cuda if h_t.is_cuda else torch
@@ -109,7 +111,7 @@ class UtterancePolicy(nn.Module):
 
             log_g = None
             if not testing:
-                a = torch.multinomial(probs)
+                a = torch.multinomial(probs, 1)
                 g = torch.gather(probs, 1, Variable(a.data))
                 log_g = g.log()
                 a = a.data
@@ -117,7 +119,7 @@ class UtterancePolicy(nn.Module):
                 a = res_greedy
 
             matches_argmax = res_greedy == a
-            matches_argmax_count += matches_argmax.int().sum()
+            matches_argmax_count += matches_argmax.sum().item()
             stochastic_draws_count += batch_size
 
             if log_g is not None:
@@ -145,7 +147,6 @@ class ProposalPolicy(nn.Module):
         batch_size = x.size()[0]
         nodes = []
         entropy = 0
-        matches_argmax_count = 0
         type_constr = torch.cuda if x.is_cuda else torch
         matches_argmax_count = 0
         stochastic_draws = 0
@@ -159,7 +160,7 @@ class ProposalPolicy(nn.Module):
 
             log_g = None
             if not testing:
-                a = torch.multinomial(probs)
+                a = torch.multinomial(probs, 1)
                 g = torch.gather(probs, 1, Variable(a.data))
                 log_g = g.log()
                 a = a.data
@@ -167,57 +168,66 @@ class ProposalPolicy(nn.Module):
                 a = res_greedy
 
             matches_argmax = res_greedy == a
-            matches_argmax_count += matches_argmax.int().sum()
+            matches_argmax_count += matches_argmax.sum().item()
             stochastic_draws += batch_size
 
             if log_g is not None:
                 nodes.append(log_g)
             probs = probs + eps
             entropy += (- probs * probs.log()).sum(1).sum()
-            proposal[:, i] = a
+            proposal[:, i] = torch.squeeze(a)
 
         return nodes, proposal, entropy, matches_argmax_count, stochastic_draws
 
 
 class AgentModel(nn.Module):
-    def __init__(
-            self, enable_comms, enable_proposal,
-            term_entropy_reg,
-            utterance_entropy_reg,
-            proposal_entropy_reg,
-            embedding_size=100):
+    def __init__(self,
+                 name,
+                 term_entropy_reg,
+                 utterance_entropy_reg,
+                 proposal_entropy_reg,
+                 embedding_size=100):
         super().__init__()
+        self.name = name
         self.term_entropy_reg = term_entropy_reg
         self.utterance_entropy_reg = utterance_entropy_reg
         self.proposal_entropy_reg = proposal_entropy_reg
         self.embedding_size = embedding_size
-        self.enable_comms = enable_comms
-        self.enable_proposal = enable_proposal
-        #TODO move embedding out of this?
-        self.context_net = NumberSequenceEncoder(num_values=6)
-        self.utterance_net = NumberSequenceEncoder(num_values=UTT_VOCAB_SIZE)
-        self.proposal_net = NumberSequenceEncoder(num_values=6)
+        context_size = max(FLAGS.item_max_quantity, FLAGS.item_max_utility) + 1
+        self.context_net = NumberSequenceEncoder(num_values=context_size)
+        self.utterance_net = NumberSequenceEncoder(num_values=FLAGS.utt_vocab_size)
+        self.proposal_net = NumberSequenceEncoder(num_values=context_size)
         self.proposal_net.embedding = self.context_net.embedding
 
         self.combined_net = CombinedNet()
 
         self.term_policy = TermPolicy()
-        self.utterance_policy = UtterancePolicy()
-        self.proposal_policy = ProposalPolicy()
+        self.proposal_policy = ProposalPolicy(num_counts=FLAGS.item_max_quantity+1,
+                                              num_items=FLAGS.item_num_types)
+        if FLAGS.force_masking_comm:
+            utterance_num_tokens = 2
+        else:
+            utterance_num_tokens = FLAGS.utt_vocab_size
+        self.utterance_policy = UtterancePolicy(max_len=FLAGS.utt_max_length,
+                                                num_tokens=utterance_num_tokens)
 
     def forward(self, pool, utility, m_prev, prev_proposal, testing):
         """
         setting testing to True disables stochasticity: always picks the argmax
         cannot use this when training
         """
-        batch_size = pool.size()[0]
+        # parse all inputs
         context = torch.cat([pool, utility], 1)
         c_h = self.context_net(context)
+
+        batch_size = pool.size()[0]
         type_constr = torch.cuda if context.is_cuda else torch
-        if self.enable_comms:
+
+        if FLAGS.linguistic:
             m_h = self.utterance_net(m_prev)
         else:
             m_h = Variable(type_constr.FloatTensor(batch_size, self.embedding_size).fill_(0))
+
         p_h = self.proposal_net(prev_proposal)
 
         h_t = torch.cat([c_h, m_h, p_h], -1)
@@ -226,25 +236,45 @@ class AgentModel(nn.Module):
         entropy_loss = 0
         nodes = []
 
+        # generate termination
         term_probs, term_node, term_a, entropy, term_matches_argmax_count = self.term_policy(h_t, testing=testing)
         nodes.append(term_node)
         entropy_loss -= entropy * self.term_entropy_reg
 
-        utterance = None
-        if self.enable_comms:
-            utterance_nodes, utterance, utterance_entropy, utt_matches_argmax_count, utt_stochastic_draws = self.utterance_policy(
-                h_t, testing=testing)
-            nodes += utterance_nodes
-            entropy_loss -= self.utterance_entropy_reg * utterance_entropy
-        else:
-            utt_matches_argmax_count = 0
-            utt_stochastic_draws = 0
-            utterance = type_constr.LongTensor(batch_size, 6).zero_()  # hard-coding 6 here is a bit hacky...
-
+        # generate proposal
         proposal_nodes, proposal, proposal_entropy, prop_matches_argmax_count, prop_stochastic_draws = self.proposal_policy(
             h_t, testing=testing)
         nodes += proposal_nodes
         entropy_loss -= self.proposal_entropy_reg * proposal_entropy
 
-        return nodes, term_a, utterance, proposal, entropy_loss, \
-            term_matches_argmax_count, utt_matches_argmax_count, utt_stochastic_draws, prop_matches_argmax_count, prop_stochastic_draws
+        # generate utterance
+        utterance = type_constr.LongTensor(batch_size, FLAGS.utt_max_length).zero_()
+        utt_matches_argmax_count = 0
+        utt_stochastic_draws = 0
+        utt_mask_count = 0
+        prop_mask_count = 0
+        if FLAGS.linguistic:
+            if (FLAGS.force_utility_comm == 'both'
+                or FLAGS.force_utility_comm == self.name):
+                utterance[:,:3] = utility
+            elif FLAGS.force_masking_comm:
+                (utterance_nodes, utterance_mask, utterance_entropy,
+                 utt_matches_argmax_count, utt_stochastic_draws) = self.utterance_policy(h_t, testing=testing)
+                nodes += utterance_nodes
+                entropy_loss -= self.utterance_entropy_reg * utterance_entropy
+                utterance[:,:3] = utterance_mask[:,:3] * utility
+                if not FLAGS.proposal:
+                    utterance[:,3:] = utterance_mask[:,3:] * proposal
+                    prop_mask_count = torch.sum(utterance_mask[:,3:]).item()
+                utt_mask_count = torch.sum(utterance_mask[:,:3]).item()
+            else:
+                utterance_nodes, utterance, utterance_entropy, utt_matches_argmax_count, utt_stochastic_draws = self.utterance_policy( h_t, testing=testing)
+                nodes += utterance_nodes
+                entropy_loss -= self.utterance_entropy_reg * utterance_entropy
+
+
+        return (nodes, term_a, utterance, proposal, entropy_loss,
+                term_matches_argmax_count,
+                utt_matches_argmax_count, utt_stochastic_draws,
+                prop_matches_argmax_count, prop_stochastic_draws,
+                utt_mask_count, prop_mask_count)

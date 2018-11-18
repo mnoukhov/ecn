@@ -1,7 +1,7 @@
 #!/bin/bash
 
 python src/main.py \
-    --name 'pro-both' \
+    --name 'pro-both-masking' \
     --prosocial \
     --proposal \
     --linguistic \
@@ -10,4 +10,5 @@ python src/main.py \
     --utterance-entropy-reg 0.001 \
     --proposal-entropy-reg 0.05 \
     --episodes 100000 \
+    --force_masking_comm \
     $@

@@ -1,65 +1,104 @@
+#TODO
+# create a dataset of utilities + pools instead of generating on the fly?
+# refactor by changing this to classes
+
 import torch
 import numpy as np
+from absl import flags
 
-item_max_quantity = 6
-item_max_utility = 11
+FLAGS = flags.FLAGS
 
 
-def sample_items(batch_size, num_values=item_max_quantity, seq_len=3, random_state=np.random):
+def sample_items(batch_size,
+                 max_quantity,
+                 num_items,
+                 random_state=np.random):
     """
-    num_values 6 will give possible values: 0,1,2,3,4,5
+    max_quantity 5 will give 6 possible values: 0,1,2,3,4,5
     """
-    pool = np.zeros((batch_size, seq_len), dtype=np.int64)
-    zero_pool = [0]*seq_len
+    pool = np.zeros((batch_size, num_items), dtype=np.int64)
+    zero_pool = [0]*num_items
     zero_idxs = np.arange(batch_size)
     num_zeros = batch_size
     #find batches with all 0s and regenerate
     while num_zeros > 0:
-        pool[zero_idxs] = random_state.choice(num_values, (num_zeros, seq_len), replace=True)
+        pool[zero_idxs] = random_state.choice(max_quantity + 1, (num_zeros, num_items), replace=True)
         zero_idxs = (pool == zero_pool)[:,0]
         num_zeros = np.count_nonzero(zero_idxs)
 
-    return torch.from_numpy(pool)
+    return pool
 
 
-def sample_utility(batch_size, num_values=item_max_utility, seq_len=3, random_state=np.random, normalize=False):
-    util = np.zeros((batch_size, seq_len), dtype=np.int64)
-    if not normalize:
-        zero_util = [0]*seq_len
-        zero_idxs = np.arange(batch_size)
-        num_zeros = batch_size
-        #find batches with all 0s and regenerate
-        while num_zeros > 0:
-            util[zero_idxs] = random_state.choice(num_values, (num_zeros, seq_len), replace=True)
-            zero_idxs = (util == zero_util)[:,0]
-            num_zeros = np.count_nonzero(zero_idxs)
-    else:
-        norm_sum = int(0.5 * num_values * seq_len)
-        util_range = np.arange(1, num_values)
-        util = random_state.choice(util_range, (batch_size, seq_len), replace=True)
-        util = util * norm_sum // np.sum(util, axis=1)
+def sample_utility(batch_size,
+                   max_utility,
+                   num_items,
+                   pool,
+                   normalize=False,
+                   nonzero=False,
+                   random_state=np.random):
+    util = np.zeros((batch_size, num_items), dtype=np.int64)
+    min_utility = 1 if nonzero else 0
+    utility_range = np.arange(min_utility, max_utility+1)
 
-    return torch.from_numpy(util)
+    zero_idxs = np.arange(batch_size)
+    num_zeros = batch_size
+    #find batches with all 0s and regenerate
+    while num_zeros > 0:
+        new_util = random_state.choice(utility_range, (num_zeros, num_items), replace=True)
+
+        if normalize:
+            # this doesn't guarantee exactly norm_utility because of rounding
+            norm = FLAGS.item_max_utility
+            # avoid the divide by 0 issue
+            util_sums = np.sum(new_util, axis=1)[:,None]
+            nonzero = np.squeeze(util_sums != 0)
+            new_util[nonzero] = (new_util * norm)[nonzero] / util_sums[nonzero]
+            new_util = new_util.round().astype(int)
+
+        util[zero_idxs] = new_util
+        # batched dot over the first dimension
+        available_util = np.einsum('ij,ij->i', util, pool)
+        zero_idxs = (available_util == 0)
+        num_zeros = np.count_nonzero(zero_idxs)
+
+    return util
 
 
-def sample_N(batch_size, random_state=np.random):
+def sample_N(batch_size,
+             max_timesteps,
+             random_state=np.random):
     N = random_state.poisson(7, batch_size)
-    N = np.maximum(4, N)
-    N = np.minimum(10, N)
-    N = torch.from_numpy(N)
+    N = np.clip(N, 4, max_timesteps)
     return N
 
 
 def generate_batch(batch_size, random_state=np.random):
-    pool = sample_items(batch_size=batch_size, num_values=6, seq_len=3, random_state=random_state)
-    utilities = []
-    utilities.append(sample_utility(batch_size=batch_size, num_values=6, seq_len=3, random_state=random_state))
-    utilities.append(sample_utility(batch_size=batch_size, num_values=6, seq_len=3, random_state=random_state))
-    N = sample_N(batch_size=batch_size, random_state=random_state)
+    pool = sample_items(batch_size=batch_size,
+                        max_quantity=FLAGS.item_max_quantity,
+                        num_items=FLAGS.item_num_types,
+                        random_state=random_state)
+    utilities = np.array([
+        sample_utility(batch_size=batch_size,
+                       max_utility=FLAGS.item_max_utility,
+                       num_items=FLAGS.item_num_types,
+                       pool=pool,
+                       normalize=FLAGS.utility_normalize,
+                       nonzero=FLAGS.utility_nonzero,
+                       random_state=random_state),
+        sample_utility(batch_size=batch_size,
+                       max_utility=FLAGS.item_max_utility,
+                       num_items=FLAGS.item_num_types,
+                       pool=pool,
+                       normalize=FLAGS.utility_normalize,
+                       nonzero=FLAGS.utility_nonzero,
+                       random_state=random_state)])
+    N = sample_N(batch_size=batch_size,
+                 max_timesteps=FLAGS.max_timesteps,
+                 random_state=random_state)
     return {
-        'pool': pool,
-        'utilities': utilities,
-        'N': N
+        'pool': torch.from_numpy(pool),
+        'utilities': torch.from_numpy(utilities),
+        'N': torch.from_numpy(N)
     }
 
 
@@ -73,28 +112,29 @@ def generate_test_batches(batch_size, num_batches, random_state):
     # r = np.random.RandomState(seed)
     test_batches = []
     for i in range(num_batches):
-        batch = generate_batch(batch_size=batch_size, random_state=random_state)
+        batch = generate_batch(batch_size=batch_size,
+                               random_state=random_state)
         test_batches.append(batch)
     return test_batches
 
 
-def hash_long_batch(int_batch, num_values):
-    seq_len = int_batch.size()[1]
-    multiplier = torch.LongTensor(seq_len)
+def hash_long_batch(int_batch, max_quantity):
+    num_items = int_batch.size()[1]
+    multiplier = torch.LongTensor(num_items)
     v = 1
-    for i in range(seq_len):
+    for i in range(num_items):
         multiplier[-i - 1] = v
-        v *= num_values
+        v *= max_quantity
     hashed_batch = (int_batch * multiplier).sum(1)
     return hashed_batch
 
 
 def hash_batch(pool, utilities, N):
     v = N
-    # use num_values=10, so human-readable
-    v = v * 1000 + hash_long_batch(pool, num_values=10)
-    v = v * 1000 + hash_long_batch(utilities[0], num_values=10)
-    v = v * 1000 + hash_long_batch(utilities[1], num_values=10)
+    # use max_quantity=10, so human-readable
+    v = v * 1000 + hash_long_batch(pool, max_quantity=10)
+    v = v * 1000 + hash_long_batch(utilities[0], max_quantity=10)
+    v = v * 1000 + hash_long_batch(utilities[1], max_quantity=10)
     return v
 
 
@@ -122,5 +162,6 @@ def overlaps(test_hashes, batch):
 def generate_training_batch(batch_size, test_hashes, random_state):
     batch = None
     while batch is None or overlaps(test_hashes, batch):
-        batch = generate_batch(batch_size=batch_size, random_state=random_state)
+        batch = generate_batch(batch_size=batch_size,
+                               random_state=random_state)
     return batch

@@ -1,23 +1,30 @@
-import torch
-
 #TODO
 # measure selfish reward correctly
+import torch
+
+from absl import flags, logging
+
+FLAGS = flags.FLAGS
+
 
 def calc_rewards(t, s, term, enable_cuda):
-    # calcualate rewards for any that just finished
-    # it will calculate three reward values:
-    # agent 1 (as proporition of max agent 1), agent 2 (as proportion of max agent 2), prosocial (as proportion of max prosocial)
-    # in the non-prosocial setting, we need all three:
-    # - first two for training
-    # - next one for evaluating Table 1, in the paper
-    # in the prosocial case, we'll skip calculating the individual agent rewards, possibly/probably
+    """ calcualate rewards for any games just finished
+    it will calculate three reward values:
+        - agent 1 (as % of its max),
+        - agent 2 (as % of its max),
+        - prosocial (as % of max agent 1 + 2)
 
-    # assert prosocial, 'not tested for not prosocial currently'
+    in the non-prosocial setting, we need all three:
+        - first two for training
+        - next one for evaluating Table 1, in the paper
+    in the prosocial case, we'll skip calculating the individual agent rewards,
+    possibly/probably
+    """
 
     agent = t % 2
     batch_size = term.size()[0]
     type_constr = torch.cuda if enable_cuda else torch
-    rewards_batch = type_constr.FloatTensor(batch_size, 3).fill_(0)  # each row is: {one, two, combined}
+    rewards_batch = type_constr.FloatTensor(batch_size, 3).fill_(0)
     if t == 0:
         # on first timestep theres no actual proposal yet, so score zero if terminate
         return rewards_batch
@@ -48,21 +55,32 @@ def calc_rewards(t, s, term, enable_cuda):
 
     reward_eligible_idxes = reward_eligible_mask.nonzero().view(-1)
     raw_rewards = type_constr.FloatTensor(batch_size, 2).fill_(0)
+    #TODO change this to be vector operation
     for b in reward_eligible_idxes:
         for i in range(2):
             raw_rewards[b][i] = torch.dot(utilities[b, i], proposal[b, i])
 
-        # we always calculate the prosocial reward
-        actual_prosocial = raw_rewards[b].sum()
         available_prosocial = torch.dot(max_utility[b], pool[b])
         if available_prosocial == 0:
-            raise ValueError('either pool or max utility is all 0')
+            logging.error('total available utility 0, utilities {}, pool {}'.format(utilities[b], pool[b]))
+        else:
+            actual_prosocial = raw_rewards[b].sum()
+            rewards_batch[b][2] = actual_prosocial / available_prosocial
 
-        rewards_batch[b][2] = actual_prosocial / available_prosocial
-
+        max_agent = torch.matmul(utilities[b], pool[b])
         for i in range(2):
-            max_agent = torch.dot(utilities[b, i], pool[b])
-            if max_agent != 0:
-                rewards_batch[b][i] = raw_rewards[b][i] / max_agent
+            if max_agent[i] == 0:
+                logging.warning('agent {} available utility 0, utility {}, pool {}'.format(i, utilities[b,i], pool[b]))
+            elif FLAGS.prosociality > 0:
+                alpha = FLAGS.prosociality
+                actual =  (1 - alpha) * raw_rewards[b][i] + alpha * raw_rewards[b][1-i]
+                alpha_utility = type_constr.FloatTensor(2,3)
+                alpha_utility[i] = utilities[b][i] * (1 - alpha)
+                alpha_utility[1-i] = utilities[b][1-i] * alpha
+                alpha_max_utility, _ = alpha_utility.max(0)
+                available = torch.matmul(alpha_max_utility, pool[b])
+                rewards_batch[b][i] = actual / available
+            else:
+                rewards_batch[b][i] = raw_rewards[b][i] / max_agent[i]
 
     return rewards_batch

@@ -1,6 +1,5 @@
-#TODO
+# TODO
 # test/save per episode not
-# centralize args
 # change everything from long to float
 
 import argparse
@@ -12,8 +11,10 @@ from os import path
 
 import numpy as np
 import torch
+from absl import flags
 from torch import optim
 from torch.autograd import Variable
+from pprint import pprint
 
 from src.alive_sieve import AliveSieve, SievePlayback
 from src.nets import AgentModel
@@ -21,7 +22,8 @@ from src.rewards_lib import calc_rewards
 from src.sampling import (generate_test_batches,
                           generate_training_batch,
                           hash_batches)
-from src.args import UTT_MAX_LEN
+
+FLAGS = flags.FLAGS
 
 def render_action(t, s, prop, term):
     agent = t % 2
@@ -34,10 +36,10 @@ def render_action(t, s, prop, term):
         print(' ACC')
     else:
         print(' ' + ''.join([str(v) for v in s.m_prev[0].view(-1).tolist()]), end='')
-        print(' %s:%s/%s %s:%s/%s %s:%s/%s' % (
-            utility[0][0], prop[0][0], s.pool[0][0],
-            utility[0][1], prop[0][1], s.pool[0][1],
-            utility[0][2], prop[0][2], s.pool[0][2],
+        print(' %s/%s %s/%s %s/%s' % (
+            prop[0][0].item(), s.pool[0][0].item(),
+            prop[0][1].item(), s.pool[0][1].item(),
+            prop[0][2].item(), s.pool[0][2].item(),
         ), end='')
         print('')
         if t + 1 == s.N[0]:
@@ -79,7 +81,7 @@ class State(object):
         self.utilities[:, 1] = utilities[1]
 
         self.last_proposal = torch.zeros(batch_size, 3).long()
-        self.m_prev = torch.zeros(batch_size, UTT_MAX_LEN).long()
+        self.m_prev = torch.zeros(batch_size, FLAGS.utt_max_length).long()
 
     def cuda(self):
         self.N = self.N.cuda()
@@ -99,12 +101,8 @@ class State(object):
 def run_episode(
     batch,
     enable_cuda,
-    enable_comms,
-    enable_proposal,
-    comms_opponent_utility,
-    prosocial,
     agent_models,
-    # batch_size,
+    batch_size,
     testing,
     render=False):
     """
@@ -112,7 +110,6 @@ def run_episode(
     """
 
     type_constr = torch.cuda if enable_cuda else torch
-    batch_size = batch['N'].size()[0]
     s = State(**batch)
     if enable_cuda:
         s.cuda()
@@ -131,6 +128,8 @@ def run_episode(
     num_policy_runs = 0
     prop_matches_argmax_count = 0
     prop_stochastic_draws = 0
+    utt_unmasked_count = [[],[]]
+    prop_unmasked_count = [[],[]]
 
     entropy_loss_by_agent = [
         Variable(type_constr.FloatTensor(1).fill_(0)),
@@ -138,34 +137,28 @@ def run_episode(
     ]
     if render:
         print('  ')
-    for t in range(10):
-        agent = t % 2
-
-        agent_model = agent_models[agent]
-        if enable_comms and comms_opponent_utility is None:
+        print('           ',
+              '{}   {}   {}'.format(*s.utilities[0][0].tolist()),
+              '      ',
+              '{} {} {}'.format(*s.pool[0].tolist()),
+              '          ',
+              '{}   {}   {}'.format(*s.utilities[0][1].tolist()))
+    for t in range(FLAGS.max_timesteps):
+        if FLAGS.linguistic:
             _prev_message = s.m_prev
-        elif enable_comms and ((comms_opponent_utility == 0 and agent == 0) or
-                               (comms_opponent_utility == 1 and agent == 1) or
-                               (comms_opponent_utility == 2)):
-            # 0: agent 0 sees agent 1 utility
-            # 1: agent 1 sees agent 0 utility
-            # 2: both agents see each other's utility
-            _prev_message = type_constr.LongTensor(sieve.batch_size, 6).fill_(0)
-            _prev_message[:,:3] = s.utilities[:, 1 - agent]
         else:
-            # we dont strictly need to blank them, since they'll be all zeros anyway,
-            # but defense in depth and all that :)
             _prev_message = type_constr.LongTensor(sieve.batch_size, 6).fill_(0)
 
-        if enable_proposal:
+        if FLAGS.proposal:
             _prev_proposal = s.last_proposal
         else:
-            # we do need to blank this one though :)
             _prev_proposal = type_constr.LongTensor(sieve.batch_size, 3).fill_(0)
 
+        agent = t % 2
+        agent_model = agent_models[agent]
         (nodes, term_a, s.m_prev, this_proposal, _entropy_loss,
          _term_matches_argmax_count, _utt_matches_argmax_count, _utt_stochastic_draws,
-         _prop_matches_argmax_count, _prop_stochastic_draws) = agent_model(
+         _prop_matches_argmax_count, _prop_stochastic_draws, _utt_unmasked_count, _prop_unmasked_count) = agent_model(
              pool=Variable(s.pool),
              utility=Variable(s.utilities[:, agent]),
              m_prev=Variable(_prev_message),
@@ -180,6 +173,8 @@ def run_episode(
         utt_stochastic_draws += _utt_stochastic_draws
         prop_matches_argmax_count += _prop_matches_argmax_count
         prop_stochastic_draws += _prop_stochastic_draws
+        utt_unmasked_count[agent].append(_utt_unmasked_count)
+        prop_unmasked_count[agent].append(_prop_unmasked_count)
 
         if render and sieve.out_idxes[0] == 0:
             render_action(
@@ -193,7 +188,7 @@ def run_episode(
             t=t,
             s=s,
             term=term_a,
-            enable_cuda=args.enable_cuda
+            enable_cuda=enable_cuda
         )
         rewards[sieve.out_idxes] = new_rewards
         s.last_proposal = this_proposal
@@ -209,20 +204,41 @@ def run_episode(
         sieve.self_sieve_()
 
     if render:
-        print('  r: %.2f' % rewards[0].mean())
+        print(' rewards: {:2.2f} {:2.2f} {:2.2f}'.format(*rewards[0].tolist()))
         print('  ')
 
-    return actions_by_timestep, rewards, num_steps, alive_masks, entropy_loss_by_agent, \
-        term_matches_argmax_count, num_policy_runs, utt_matches_argmax_count, utt_stochastic_draws, \
-        prop_matches_argmax_count, prop_stochastic_draws
+    if FLAGS.force_masking_comm:
+        utt_unmasked_first = [utt_unmasked_count[0][0],
+                              utt_unmasked_count[1][0]]
+        prop_unmasked_first = [prop_unmasked_count[0][0],
+                               prop_unmasked_count[1][0]]
+        utt_unmasked_sum = [sum(utt_unmasked_count[0]),
+                            sum(utt_unmasked_count[1])]
+        prop_unmasked_sum = [sum(prop_unmasked_count[0]),
+                             sum(prop_unmasked_count[1])]
+    else:
+        utt_unmasked_first = [0,0]
+        prop_unmasked_first = [0,0]
+        utt_unmasked_sum = [0,0]
+        prop_unmasked_sum = [0,0]
+
+
+    return (actions_by_timestep, rewards, num_steps, alive_masks, entropy_loss_by_agent,
+            term_matches_argmax_count, num_policy_runs, utt_matches_argmax_count, utt_stochastic_draws,
+            prop_matches_argmax_count, prop_stochastic_draws, utt_unmasked_sum, prop_unmasked_sum,
+            utt_unmasked_first, prop_unmasked_first)
 
 
 def safe_div(a, b):
     """
     returns a / b, unless b is zero, in which case returns 0
-
     this is primarily for usage in cases where b might be systemtically zero, eg because comms are disabled or similar
+    also accounts for a or b being tensors
     """
+    if isinstance(a, torch.Tensor):
+        a = a.item()
+    if isinstance(b, torch.Tensor):
+        b = b.item()
     return 0 if b == 0 else a / b
 
 
@@ -233,7 +249,12 @@ def run(args):
     - not run optimizers
     - not save model
     """
-    type_constr = torch.cuda if args.enable_cuda else torch
+    flags_dict = {flag.name: flag.value for flag in FLAGS.flags_by_module_dict()['src/main.py']}
+    args_dict = args.__dict__
+    pprint(args_dict)
+    pprint(flags_dict)
+
+    type_constr = torch.cuda if FLAGS.enable_cuda else torch
     if args.seed is not None:
         np.random.seed(args.seed)
         torch.manual_seed(args.seed)
@@ -242,22 +263,24 @@ def run(args):
         train_r = np.random
 
     test_r = np.random.RandomState(args.test_seed)
-    test_batches = generate_test_batches(batch_size=args.batch_size, num_batches=5, random_state=test_r)
+    test_batches = generate_test_batches(batch_size=args.batch_size,
+                                         num_batches=5,
+                                         random_state=test_r)
     test_hashes = hash_batches(test_batches)
 
     episode = 0
     start_time = time.time()
     agent_models = []
     agent_opts = []
+    agent_name = ['A', 'B']
     for i in range(2):
         model = AgentModel(
-            enable_comms=args.enable_comms,
-            enable_proposal=args.enable_proposal,
+            name=agent_name[i],
             term_entropy_reg=args.term_entropy_reg,
             utterance_entropy_reg=args.utterance_entropy_reg,
             proposal_entropy_reg=args.proposal_entropy_reg
         )
-        if args.enable_cuda:
+        if FLAGS.enable_cuda:
             model = model.cuda()
         agent_models.append(model)
         agent_opts.append(optim.Adam(params=agent_models[i].parameters()))
@@ -276,11 +299,9 @@ def run(args):
     rewards_sum = type_constr.FloatTensor(3).fill_(0)
     steps_sum = 0
     count_sum = 0
-    for d in ['logs', 'model_saves']:
-        if not path.isdir(d):
-            os.makedirs(d)
-    f_log = open(args.logfile, 'w')
-    f_log.write('meta: %s\n' % json.dumps(args.__dict__))
+    f_log = open(args.log_file, 'w')
+    all_args = {**args_dict, **flags_dict}
+    f_log.write('meta: %s\n' % json.dumps(all_args))
     last_save = time.time()
     baseline = type_constr.FloatTensor(3).fill_(0)
     term_matches_argmax_count = 0
@@ -289,21 +310,23 @@ def run(args):
     utt_stochastic_draws = 0
     prop_matches_argmax_count = 0
     prop_stochastic_draws = 0
+    utt_unmasked_count = [0,0]
+    prop_unmasked_count = [0,0]
+    utt_unmasked_first = [0,0]
+    prop_unmasked_first = [0,0]
     while episode < args.episodes:
-        render = time.time() - last_print >= args.render_every_seconds
-        # render = True
-        batch = generate_training_batch(batch_size=args.batch_size, test_hashes=test_hashes, random_state=train_r)
+        render = (episode % args.render_every_episode == 0)
+        batch = generate_training_batch(batch_size=args.batch_size,
+                                        test_hashes=test_hashes,
+                                        random_state=train_r)
         (actions, rewards, steps, alive_masks, entropy_loss_by_agent,
          _term_matches_argmax_count, _num_policy_runs, _utt_matches_argmax_count, _utt_stochastic_draws,
-         _prop_matches_argmax_count, _prop_stochastic_draws) = run_episode(
+         _prop_matches_argmax_count, _prop_stochastic_draws, _utt_unmasked_count, _prop_unmasked_count,
+         _utt_unmasked_first, _prop_unmasked_first) = run_episode(
              batch=batch,
-             enable_cuda=args.enable_cuda,
-             enable_comms=args.enable_comms,
-             enable_proposal=args.enable_proposal,
-             comms_opponent_utility=args.comms_opponent_utility,
+             enable_cuda=FLAGS.enable_cuda,
              agent_models=agent_models,
-             prosocial=args.prosocial,
-             # batch_size=batch_size,
+             batch_size=args.batch_size,
              render=render,
              testing=args.testing)
         term_matches_argmax_count += _term_matches_argmax_count
@@ -312,6 +335,14 @@ def run(args):
         num_policy_runs += _num_policy_runs
         prop_matches_argmax_count += _prop_matches_argmax_count
         prop_stochastic_draws += _prop_stochastic_draws
+        utt_unmasked_count[0] += _utt_unmasked_count[0]
+        utt_unmasked_count[1] += _utt_unmasked_count[1]
+        prop_unmasked_count[0] += _prop_unmasked_count[0]
+        prop_unmasked_count[1] += _prop_unmasked_count[1]
+        utt_unmasked_first[0] += _utt_unmasked_first[0]
+        utt_unmasked_first[1] += _utt_unmasked_first[1]
+        prop_unmasked_first[0] += _prop_unmasked_first[0]
+        prop_unmasked_first[1] += _prop_unmasked_first[1]
 
         if not args.testing:
             for i in range(2):
@@ -320,11 +351,11 @@ def run(args):
             baselined_rewards = rewards - baseline
             rewards_by_agent = []
             for i in range(2):
-                if args.prosocial:
+                if FLAGS.prosocial:
                     rewards_by_agent.append(baselined_rewards[:, 2])
                 else:
                     rewards_by_agent.append(baselined_rewards[:, i])
-            sieve_playback = SievePlayback(alive_masks, enable_cuda=args.enable_cuda)
+            sieve_playback = SievePlayback(alive_masks, enable_cuda=FLAGS.enable_cuda)
             for t, global_idxes in sieve_playback:
                 agent = t % 2
                 if len(actions[t]) > 0:
@@ -341,7 +372,7 @@ def run(args):
                 loss.backward()
                 agent_opts[i].step()
 
-        rewards_sum += rewards.sum(0)
+        rewards_sum += rewards.detach().sum(0)
         steps_sum += steps.sum()
         baseline = 0.7 * baseline + 0.3 * rewards.mean(0)
         count_sum += args.batch_size
@@ -352,53 +383,99 @@ def run(args):
             """
             test_rewards_sum = np.zeros(3)
             test_count_sum = len(test_batches) * args.batch_size
+            test_num_policy_runs = 0
+            test_unmasked_count = [0,0]
+            test_prop_unmasked_count = [0,0]
+            test_utt_unmasked_first = [0,0]
+            test_prop_unmasked_first = [0,0]
             for test_batch in test_batches:
+                # TODO this stuff isn't being used
                 (actions, test_rewards, steps, alive_masks, entropy_loss_by_agent,
-                 _term_matches_argmax_count, _num_policy_runs, _utt_matches_argmax_count, _utt_stochastic_draws,
-                 _prop_matches_argmax_count, _prop_stochastic_draws) = run_episode(
+                 _term_matches_argmax_count, _test_num_policy_runs, _utt_matches_argmax_count, _utt_stochastic_draws,
+                 _prop_matches_argmax_count, _prop_stochastic_draws, _test_unmasked_count, _test_prop_unmasked_count,
+                 _test_utt_unmasked_first, _test_prop_unmasked_first) = run_episode(
                      batch=test_batch,
-                     enable_cuda=args.enable_cuda,
-                     enable_comms=args.enable_comms,
-                     enable_proposal=args.enable_proposal,
-                     comms_opponent_utility=args.comms_opponent_utility,
+                     enable_cuda=FLAGS.enable_cuda,
                      agent_models=agent_models,
-                     prosocial=args.prosocial,
+                     batch_size=args.batch_size,
                      render=True,
                      testing=True)
                 test_rewards_sum += test_rewards.sum(0)
-            print('test reward=%.3f' % (test_rewards_sum[2] / test_count_sum))
+                test_num_policy_runs += _test_num_policy_runs
+                test_unmasked_count[0] += _test_unmasked_count[0]
+                test_unmasked_count[1] += _test_unmasked_count[1]
+                test_prop_unmasked_count[0] += _test_prop_unmasked_count[0]
+                test_prop_unmasked_count[1] += _test_prop_unmasked_count[1]
+                test_utt_unmasked_first[0] += _test_utt_unmasked_first[0]
+                test_utt_unmasked_first[1] += _test_utt_unmasked_first[1]
+                test_prop_unmasked_first[0] += _test_prop_unmasked_first[0]
+                test_prop_unmasked_first[1] += _test_prop_unmasked_first[1]
 
             time_since_last = time.time() - last_print
-            if args.prosocial:
-                baseline_str = '%.2f' % baseline[2]
-                # rewards_str = '%.2f' % (rewards_sum[2] / count_sum)
-            else:
-                baseline_str = '%.2f,%.2f' % (baseline[0], baseline[1])
-            rewards_str = '%.2f,%.2f,%.2f' % (rewards_sum[0] / count_sum, rewards_sum[1] / count_sum, rewards_sum[2] / count_sum)
-            print('e=%s train=%s b=%s games/sec %s avg steps %.4f argmaxp term=%.4f utt=%.4f prop=%.4f' % (
+            rewards_str = '%.2f,%.2f,%.2f' % (rewards_sum[0] / count_sum,
+                                              rewards_sum[1] / count_sum,
+                                              rewards_sum[2] / count_sum)
+            test_rewards_str = '%.2f,%.2f,%.2f' % (test_rewards_sum[0] / test_count_sum,
+                                                   test_rewards_sum[1] / test_count_sum,
+                                                   test_rewards_sum[2] / test_count_sum)
+            baseline_str = '%.2f,%.2f,%.2f' % (baseline[0], baseline[1], baseline[2])
+            print('test  {}'.format(test_rewards_str))
+            print('train {}'.format(rewards_str))
+            print('base  {}'.format(baseline_str))
+            print('ep {}, {} games/sec, {:2.2f} avg steps'.format(
                 episode,
-                rewards_str,
-                baseline_str,
                 int(count_sum / time_since_last),
-                steps_sum / count_sum,
+                steps_sum.item() / count_sum
+            ))
+            print('argmaxp term={:4.4f} utt={:4.4f} prop={:4.4f}'.format(
                 term_matches_argmax_count / num_policy_runs,
                 safe_div(utt_matches_argmax_count, utt_stochastic_draws),
                 prop_matches_argmax_count / prop_stochastic_draws
             ))
+            if FLAGS.force_masking_comm:
+                print('utt unmasked {:2.2f},{:2.2f} first {:2.2f},{:2.2f}'.format(
+                    utt_unmasked_count[0] / (3 * num_policy_runs),
+                    utt_unmasked_count[1] / (3 * num_policy_runs),
+                    utt_unmasked_first[0] / (3 * count_sum),
+                    utt_unmasked_first[1] / (3 * count_sum),
+                ))
+                print('prop unmasked {:2.2f},{:2.2f} first {:2.2f},{:2.2f}'.format(
+                    prop_unmasked_count[0] / (3 * num_policy_runs),
+                    prop_unmasked_count[1] / (3 * num_policy_runs),
+                    prop_unmasked_first[0] / (3 * count_sum),
+                    prop_unmasked_first[1] / (3 * count_sum),
+                ))
+
             f_log.write(json.dumps({
                 'episode': episode,
-                'avg_reward_A': rewards_sum[0] / count_sum,
-                'avg_reward_B': rewards_sum[1] / count_sum,
-                'avg_reward_0': rewards_sum[2] / count_sum,
-                'test_reward_A': test_rewards_sum[0] / test_count_sum,
-                'test_reward_B': test_rewards_sum[1] / test_count_sum,
-                'test_reward': test_rewards_sum[2] / test_count_sum,
-                'avg_steps': steps_sum / count_sum,
-                'games_sec': count_sum / time_since_last,
+                'avg_reward_A': (rewards_sum[0] / count_sum).item(),
+                'avg_reward_B': (rewards_sum[1] / count_sum).item(),
+                'avg_reward_0': (rewards_sum[2] / count_sum).item(),
+                'test_reward_A': (test_rewards_sum[0] / test_count_sum).item(),
+                'test_reward_B': (test_rewards_sum[1] / test_count_sum).item(),
+                'test_reward': (test_rewards_sum[2] / test_count_sum).item(),
+                'avg_steps': (steps_sum / count_sum).item(),
+                'games_sec': (count_sum / time_since_last),
                 'elapsed': time.time() - start_time,
-                'argmaxp_term': (term_matches_argmax_count / num_policy_runs),
+                'argmaxp_term': term_matches_argmax_count / num_policy_runs,
                 'argmaxp_utt': safe_div(utt_matches_argmax_count, utt_stochastic_draws),
-                'argmaxp_prop': (prop_matches_argmax_count / prop_stochastic_draws)
+                'argmaxp_prop': prop_matches_argmax_count / prop_stochastic_draws,
+                'utt_unmasked_A': utt_unmasked_count[0] / (3 * num_policy_runs),
+                'utt_unmasked_B': utt_unmasked_count[1] / (3 * num_policy_runs),
+                'prop_unmasked_A': prop_unmasked_count[0] / (3 * num_policy_runs),
+                'prop_unmasked_B': prop_unmasked_count[1] / (3 * num_policy_runs),
+                'test_unmasked_A': test_unmasked_count[0] / (3 * test_num_policy_runs),
+                'test_unmasked_B': test_unmasked_count[1] / (3 * test_num_policy_runs),
+                'test_prop_unmasked_A': test_prop_unmasked_count[0] / (3 * test_num_policy_runs),
+                'test_prop_unmasked_B': test_prop_unmasked_count[1] / (3 * test_num_policy_runs),
+                'utt_unmasked_A_first': utt_unmasked_first[0] / (3 * count_sum),
+                'utt_unmasked_B_first': utt_unmasked_first[1] / (3 * count_sum),
+                'prop_unmasked_A_first': prop_unmasked_first[0] / (3 * count_sum),
+                'prop_unmasked_B_first': prop_unmasked_first[1] / (3 * count_sum),
+                'test_utt_unmasked_A_first': test_utt_unmasked_first[0] / (3 * test_count_sum),
+                'test_utt_unmasked_B_first': test_utt_unmasked_first[1] / (3 * test_count_sum),
+                'test_prop_unmasked_A_first': test_prop_unmasked_first[0] / (3 * test_count_sum),
+                'test_prop_unmasked_B_first': test_prop_unmasked_first[1] / (3 * test_count_sum),
             }) + '\n')
             f_log.flush()
             last_print = time.time()
@@ -411,17 +488,21 @@ def run(args):
             prop_matches_argmax_count = 0
             prop_stochastic_draws = 0
             count_sum = 0
-        if (not args.testing and
-            not args.no_save and
-            time.time() - last_save >= args.save_every_seconds):
-            save_model(
-                model_file=args.model_file,
-                agent_models=agent_models,
-                agent_opts=agent_opts,
-                start_time=start_time,
-                episode=episode)
+            utt_unmasked_count = [0,0]
+            prop_unmasked_count = [0,0]
+            utt_unmasked_first = [0,0]
+            prop_unmasked_first = [0,0]
+
+        if (not args.testing
+            and not args.no_save
+            and episode > 0
+            and episode % args.save_every_episode == 0):
+            save_model(model_file=args.model_file,
+                       agent_models=agent_models,
+                       agent_opts=agent_opts,
+                       start_time=start_time,
+                       episode=episode)
             print('saved model')
-            last_save = time.time()
 
         episode += 1
 
@@ -435,57 +516,3 @@ def run(args):
             episode=episode)
         print('saved model')
     f_log.close()
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    # game fixed args
-    game_args = parser.add_argument_group('game args')
-    game_args.add_argument('--utterance-max-length', type=int, default=6)
-    game_args.add_argument('--utterance-vocab-size', type=int, default=11)
-    game_args.add_argument('--item-max-quantity', type=int, default=6)
-    game_args.add_argument('--item-max-utility', type=int, default=11)
-    game_args.add_argument('--num-items', type=int, default=11)
-
-    # model info
-    parser.add_argument('--model-file', type=str, default='model_saves/model.dat')
-    parser.add_argument('--batch-size', type=int, default=128)
-    parser.add_argument('--seed', type=int, help='optional')
-    parser.add_argument('--test-seed', type=int, default=123, help='used for generating test game set')
-    parser.add_argument('--episodes', type=int, default=5e5, help='total number of episodes to run')
-    parser.add_argument('--enable-cuda', action='store_true')
-
-    # hyperparams
-    parser.add_argument('--term-entropy-reg', type=float, default=0.05)
-    parser.add_argument('--utterance-entropy-reg', type=float, default=0.001)
-    parser.add_argument('--proposal-entropy-reg', type=float, default=0.05)
-
-    # agents
-    social = parser.add_mutually_exclusive_group(required=True)
-    social.add_argument('--prosocial', dest='prosocial', action='store_true')
-    social.add_argument('--selfish', dest='prosocial', action='store_false')
-    proposal = parser.add_mutually_exclusive_group(required=True)
-    proposal.add_argument('--enable-proposal', dest='enable_proposal', action='store_true')
-    proposal.add_argument('--disable-proposal', dest='enable_proposal', action='store_false')
-    comms = parser.add_mutually_exclusive_group(required=True)
-    comms.add_argument('--enable-comms', dest='enable_comms', action='store_true')
-    comms.add_argument('--disable-comms', dest='enable_comms', action='store_false')
-
-    # loading / logging
-    parser.add_argument('--render-every-seconds', type=int, default=30)
-    parser.add_argument('--save-every-seconds', type=int, default=30)
-    parser.add_argument('--testing', action='store_true', help='turn off learning; always pick argmax')
-    parser.add_argument('--no-load', action='store_true')
-    parser.add_argument('--no-save', action='store_true')
-    parser.add_argument('--name', type=str, default='', help='used for logfile naming')
-    parser.add_argument('--logfile', type=str, default='logs/log_%Y%m%d_%H%M%S{name}.log')
-
-    # experiments
-    parser.add_argument('--comms-opponent-utility', type=int, default=None)
-    parser.add_argument('--utility-normalization', action='store_true')
-
-    args = parser.parse_args()
-    args.logfile = args.logfile.format(**args.__dict__)
-    args.logfile = datetime.datetime.strftime(datetime.datetime.now(), args.logfile)
-    del args.__dict__['name']
-    run(args)

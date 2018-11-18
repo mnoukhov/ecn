@@ -97,16 +97,6 @@ ENV/
 # mkdocs documentation
 /site
 
-# mypy
-.mypy_cache/
-model_saves/*
-
-merge.yaml
-merge.sh
-
-# vim
-*.swp
-
 ## Core latex/pdflatex auxiliary files:
 *.aux
 *.lof
@@ -131,3 +121,18 @@ merge.sh
 *.synctex.gz
 *.synctex.gz(busy)
 *.pdfsync
+
+# vim
+*.swp
+
+# my stuff
+ mypy
+.mypy_cache/
+model_saves/*
+old-models/
+
+merge.yaml
+merge.sh
+
+*.ipynb
+
