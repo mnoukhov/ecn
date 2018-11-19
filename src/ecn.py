@@ -176,6 +176,11 @@ def run_episode(
         utt_unmasked_count[agent].append(_utt_unmasked_count)
         prop_unmasked_count[agent].append(_prop_unmasked_count)
 
+        if FLAGS.proposal_termination:
+            term_a = torch.prod(this_proposal == _prev_proposal,
+                                dim=1,
+                                keepdim=True)
+
         if render and sieve.out_idxes[0] == 0:
             render_action(
                 t=t,

@@ -1,6 +1,3 @@
-#TODO
-# check num_tokens in UtterancePolicy
-
 import torch
 import torch.nn.functional as F
 from absl import flags
@@ -237,9 +234,12 @@ class AgentModel(nn.Module):
         nodes = []
 
         # generate termination
-        term_probs, term_node, term_a, entropy, term_matches_argmax_count = self.term_policy(h_t, testing=testing)
-        nodes.append(term_node)
-        entropy_loss -= entropy * self.term_entropy_reg
+        term_a = None
+        term_matches_argmax_count = 0
+        if not FLAGS.proposal_termination:
+            term_probs, term_node, term_a, entropy, term_matches_argmax_count = self.term_policy(h_t, testing=testing)
+            nodes.append(term_node)
+            entropy_loss -= entropy * self.term_entropy_reg
 
         # generate proposal
         proposal_nodes, proposal, proposal_entropy, prop_matches_argmax_count, prop_stochastic_draws = self.proposal_policy(
