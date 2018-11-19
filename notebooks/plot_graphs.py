@@ -46,13 +46,13 @@ def plot_one(logfile, **args):
 
 def plot(epochs, rewards, title=None, min_y=None, max_y=None,
          show_train=False, show_both=True, show_unmasked=False,
-         show_argmax=False):
+         show_argmax=False, rename={}, plot_args={}, legend_loc='best'):
     if min_y is None:
         min_y = 0
     if max_y is not None:
         plt.ylim([min_y, max_y])
 
-    for name, values in rewards.items():
+    for name, values in sorted(rewards.items()):
         if not any(values):
             continue
         elif ('train' in name and 'reward' in name) and not show_train:
@@ -74,18 +74,39 @@ def plot(epochs, rewards, title=None, min_y=None, max_y=None,
                 continue
 
             if ('first' in name) and ('first' in show_unmasked):
-                plt.plot(epochs, values, label=name)
+                if name in rename:
+                    name = rename[name]
+                extra_args = plot_args.get(name, None)
+                if extra_args:
+                    plt.plot(epochs, values, **extra_args, label=name)
+                else:
+                    plt.plot(epochs, values, label=name)
             elif ('avg' in show_unmasked):
-                plt.plot(epochs, values, label=name)
-        else:
-            plt.plot(epochs, values, label=name)
+                if name in rename:
+                    name = rename[name]
+                extra_args = plot_args.get(name, None)
+                if extra_args:
+                    plt.plot(epochs, values, **extra_args, label=name)
+                else:
+                    plt.plot(epochs, values, label=name)
 
+        else:
+            if name in rename:
+                name = rename[name]
+            extra_args = plot_args.get(name, None)
+            if extra_args:
+                plt.plot(epochs, values, **extra_args, label=name)
+            else:
+                plt.plot(epochs, values, label=name)
     if title:
         plt.title(title)
 
     plt.xlabel('Episodes of 128 games (thousands)')
-    plt.ylabel('Normalized Reward')
-    plt.legend()
+    if show_unmasked: 
+        plt.ylabel('Normalized Reward\nPercent Unmasked')
+    else:
+        plt.ylabel('Normalized Reward')
+    plt.legend(loc=legend_loc)
     plt.show()
     # plt.savefig('/tmp/out-reward.png')
 
