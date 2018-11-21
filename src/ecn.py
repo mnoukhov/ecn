@@ -1,6 +1,3 @@
-# TODO
-# test/save per episode not
-# change everything from long to float
 import argparse
 import datetime
 import json
@@ -210,8 +207,8 @@ def run_episode(
         print(' rewards: {:2.2f} {:2.2f} {:2.2f}'.format(*rewards[0].tolist()))
         print('  ')
 
-    utt_mask_count = utt_mask.sum(dim=[1,2]).numpy()
-    prop_mask_count = utt_mask.sum(dim=[1,2]).numpy()
+    utt_mask_count = utt_mask.sum(dim=[1,2]).cpu().numpy()
+    prop_mask_count = utt_mask.sum(dim=[1,2]).cpu().numpy()
 
     return (actions_by_timestep, rewards, num_steps, alive_masks, entropy_loss_by_agent,
             term_matches_argmax_count, num_policy_runs, utt_matches_argmax_count, utt_stochastic_draws,
