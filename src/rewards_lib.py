@@ -6,8 +6,7 @@ from absl import flags, logging
 
 FLAGS = flags.FLAGS
 
-
-def calc_rewards(t, s, term, enable_cuda):
+def calc_rewards(t, s, term):
     """ calcualate rewards for any games just finished
     it will calculate three reward values:
         - agent 1 (as % of its max),
@@ -23,8 +22,7 @@ def calc_rewards(t, s, term, enable_cuda):
 
     agent = t % 2
     batch_size = term.size()[0]
-    type_constr = torch.cuda if enable_cuda else torch
-    rewards_batch = type_constr.FloatTensor(batch_size, 3).fill_(0)
+    rewards_batch = torch.zeros(batch_size, 3).to(FLAGS.device)
     if t == 0:
         # on first timestep theres no actual proposal yet, so score zero if terminate
         return rewards_batch
@@ -47,15 +45,14 @@ def calc_rewards(t, s, term, enable_cuda):
 
     proposer = 1 - agent
     accepter = agent
-    proposal = type_constr.FloatTensor(batch_size, 2, 3).fill_(0)
+    proposal = torch.zeros(batch_size, 2, 3).to(FLAGS.device)
     proposal[:, proposer] = last_proposal
     proposal[:, accepter] = pool - last_proposal
     # max of all agents' utility for an item
     max_utility, _ = utilities.max(1)
 
     reward_eligible_idxes = reward_eligible_mask.nonzero().view(-1)
-    raw_rewards = type_constr.FloatTensor(batch_size, 2).fill_(0)
-    #TODO change this to be vector operation
+    raw_rewards = torch.zeros(batch_size, 2).to(FLAGS.device)
     for b in reward_eligible_idxes:
         for i in range(2):
             raw_rewards[b][i] = torch.dot(utilities[b, i], proposal[b, i])
@@ -74,7 +71,7 @@ def calc_rewards(t, s, term, enable_cuda):
             elif FLAGS.prosociality > 0:
                 alpha = FLAGS.prosociality
                 actual =  (1 - alpha) * raw_rewards[b][i] + alpha * raw_rewards[b][1-i]
-                alpha_utility = type_constr.FloatTensor(2,3)
+                alpha_utility = torch.Tensor(2,3).to(FLAGS.device)
                 alpha_utility[i] = utilities[b][i] * (1 - alpha)
                 alpha_utility[1-i] = utilities[b][1-i] * alpha
                 alpha_max_utility, _ = alpha_utility.max(0)

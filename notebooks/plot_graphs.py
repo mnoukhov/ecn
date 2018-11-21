@@ -18,24 +18,24 @@ json_to_name = {
     'test_reward_B': 'test reward B',
     'utt_unmasked_A': 'train unmasked utt A',
     'utt_unmasked_B': 'train unmasked utt B',
-    'test_unmasked_A': 'test unmasked utt A',
-    'test_unmasked_B': 'test unmasked utt B',
-    'utt_unmasked_A_first': 'train unmasked utt first A',
-    'utt_unmasked_B_first': 'train unmasked utt first B',
-    'test_unmasked_A_first': 'test unmasked utt first A',
-    'test_unmasked_B_first': 'test unmasked utt first B',
     'prop_unmasked_A': 'train prop unmasked A',
     'prop_unmasked_B': 'train prop unmasked B',
+    'test_utt_unmasked_A': 'test unmasked utt A',
+    'test_utt_unmasked_B': 'test unmasked utt B',
     'test_prop_unmasked_A': 'test prop unmasked A',
     'test_prop_unmasked_B': 'test prop unmasked B',
-    'prop_unmasked_A_first': 'train prop unmasked first A',
-    'prop_unmasked_B_first': 'train prop unmasked first B',
-    'test_prop_unmasked_A_first': 'test prop unmasked first A',
-    'test_prop_unmasked_B_first': 'test prop unmasked first B',
     'argmaxp_term': 'term argmax prob',
     'argmaxp_utt': 'utt argmax prob',
     'argmaxp_prop': 'prop argmax prob',
 }
+    # 'utt_unmasked_A_first': 'train unmasked utt first A',
+    # 'utt_unmasked_B_first': 'train unmasked utt first B',
+    # 'test_unmasked_A_first': 'test unmasked utt first A',
+    # 'test_unmasked_B_first': 'test unmasked utt first B',
+    # 'prop_unmasked_A_first': 'train prop unmasked first A',
+    # 'prop_unmasked_B_first': 'train prop unmasked first B',
+    # 'test_prop_unmasked_A_first': 'test prop unmasked first A',
+    # 'test_prop_unmasked_B_first': 'test prop unmasked first B',
 
 def plot_one(logfile, **args):
     rewards = parse_logfile(logfile)
@@ -102,7 +102,7 @@ def plot(epochs, rewards, title=None, min_y=None, max_y=None,
         plt.title(title)
 
     plt.xlabel('Episodes of 128 games (thousands)')
-    if show_unmasked: 
+    if show_unmasked:
         plt.ylabel('Normalized Reward\nPercent Unmasked')
     else:
         plt.ylabel('Normalized Reward')

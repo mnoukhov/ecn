@@ -1,7 +1,6 @@
 # TODO
 # test/save per episode not
 # change everything from long to float
-
 import argparse
 import datetime
 import json
@@ -24,6 +23,7 @@ from src.sampling import (generate_test_batches,
                           hash_batches)
 
 FLAGS = flags.FLAGS
+
 
 def render_action(t, s, prop, term):
     agent = t % 2
@@ -83,12 +83,12 @@ class State(object):
         self.last_proposal = torch.zeros(batch_size, 3).long()
         self.m_prev = torch.zeros(batch_size, FLAGS.utt_max_length).long()
 
-    def cuda(self):
-        self.N = self.N.cuda()
-        self.pool = self.pool.cuda()
-        self.utilities = self.utilities.cuda()
-        self.last_proposal = self.last_proposal.cuda()
-        self.m_prev = self.m_prev.cuda()
+    def to(self, device):
+        self.N = self.N.to(device)
+        self.pool = self.pool.to(device)
+        self.utilities = self.utilities.to(device)
+        self.last_proposal = self.last_proposal.to(device)
+        self.m_prev = self.m_prev.to(device)
 
     def sieve_(self, still_alive_idxes):
         self.N = self.N[still_alive_idxes]
@@ -100,7 +100,6 @@ class State(object):
 
 def run_episode(
     batch,
-    enable_cuda,
     agent_models,
     batch_size,
     testing,
@@ -109,31 +108,29 @@ def run_episode(
     turning testing on means, we disable stochasticity: always pick the argmax
     """
 
-    type_constr = torch.cuda if enable_cuda else torch
     s = State(**batch)
-    if enable_cuda:
-        s.cuda()
+    s.to(FLAGS.device)
 
-    sieve = AliveSieve(batch_size=batch_size, enable_cuda=enable_cuda)
+    sieve = AliveSieve(batch_size=batch_size)
     actions_by_timestep = []
     alive_masks = []
 
     # next two tensors wont be sieved, they will stay same size throughout
     # entire batch, we will update them using sieve.out_idxes[...]
-    rewards = type_constr.FloatTensor(batch_size, 3).fill_(0)
-    num_steps = type_constr.LongTensor(batch_size).fill_(10)
+    rewards = torch.zeros(batch_size, 3).to(FLAGS.device)
+    num_steps = torch.LongTensor(batch_size).fill_(10).to(FLAGS.device)
     term_matches_argmax_count = 0
     utt_matches_argmax_count = 0
     utt_stochastic_draws = 0
     num_policy_runs = 0
     prop_matches_argmax_count = 0
     prop_stochastic_draws = 0
-    utt_unmasked_count = [[],[]]
-    prop_unmasked_count = [[],[]]
+    utt_mask = torch.zeros(2, batch_size, 3, dtype=torch.int64).to(FLAGS.device)
+    prop_mask = torch.zeros(2, batch_size, 3, dtype=torch.int64).to(FLAGS.device)
 
     entropy_loss_by_agent = [
-        Variable(type_constr.FloatTensor(1).fill_(0)),
-        Variable(type_constr.FloatTensor(1).fill_(0))
+        torch.zeros(1).to(FLAGS.device),
+        torch.zeros(1).to(FLAGS.device)
     ]
     if render:
         print('  ')
@@ -147,18 +144,18 @@ def run_episode(
         if FLAGS.linguistic:
             _prev_message = s.m_prev
         else:
-            _prev_message = type_constr.LongTensor(sieve.batch_size, 6).fill_(0)
+            _prev_message = torch.zeros(sieve.batch_size, 6, dtype=torch.int64).to(FLAGS.device)
 
         if FLAGS.proposal:
             _prev_proposal = s.last_proposal
         else:
-            _prev_proposal = type_constr.LongTensor(sieve.batch_size, 3).fill_(0)
+            _prev_proposal = torch.zeros(sieve.batch_size, 3, dtype=torch.int64).to(FLAGS.device)
 
         agent = t % 2
         agent_model = agent_models[agent]
         (nodes, term_a, s.m_prev, this_proposal, _entropy_loss,
          _term_matches_argmax_count, _utt_matches_argmax_count, _utt_stochastic_draws,
-         _prop_matches_argmax_count, _prop_stochastic_draws, _utt_unmasked_count, _prop_unmasked_count) = agent_model(
+         _prop_matches_argmax_count, _prop_stochastic_draws, _utt_mask, _prop_mask) = agent_model(
              pool=Variable(s.pool),
              utility=Variable(s.utilities[:, agent]),
              m_prev=Variable(_prev_message),
@@ -173,8 +170,10 @@ def run_episode(
         utt_stochastic_draws += _utt_stochastic_draws
         prop_matches_argmax_count += _prop_matches_argmax_count
         prop_stochastic_draws += _prop_stochastic_draws
-        utt_unmasked_count[agent].append(_utt_unmasked_count)
-        prop_unmasked_count[agent].append(_prop_unmasked_count)
+
+        if FLAGS.force_masking_comm:
+            utt_mask[agent][sieve.out_idxes] |= _utt_mask
+            prop_mask[agent][sieve.out_idxes] |= _prop_mask
 
         if FLAGS.proposal_termination:
             term_a = torch.prod(this_proposal == _prev_proposal,
@@ -193,7 +192,6 @@ def run_episode(
             t=t,
             s=s,
             term=term_a,
-            enable_cuda=enable_cuda
         )
         rewards[sieve.out_idxes] = new_rewards
         s.last_proposal = this_proposal
@@ -212,26 +210,12 @@ def run_episode(
         print(' rewards: {:2.2f} {:2.2f} {:2.2f}'.format(*rewards[0].tolist()))
         print('  ')
 
-    if FLAGS.force_masking_comm:
-        utt_unmasked_first = [utt_unmasked_count[0][0],
-                              utt_unmasked_count[1][0]]
-        prop_unmasked_first = [prop_unmasked_count[0][0],
-                               prop_unmasked_count[1][0]]
-        utt_unmasked_sum = [sum(utt_unmasked_count[0]),
-                            sum(utt_unmasked_count[1])]
-        prop_unmasked_sum = [sum(prop_unmasked_count[0]),
-                             sum(prop_unmasked_count[1])]
-    else:
-        utt_unmasked_first = [0,0]
-        prop_unmasked_first = [0,0]
-        utt_unmasked_sum = [0,0]
-        prop_unmasked_sum = [0,0]
-
+    utt_mask_count = utt_mask.sum(dim=[1,2]).numpy()
+    prop_mask_count = utt_mask.sum(dim=[1,2]).numpy()
 
     return (actions_by_timestep, rewards, num_steps, alive_masks, entropy_loss_by_agent,
             term_matches_argmax_count, num_policy_runs, utt_matches_argmax_count, utt_stochastic_draws,
-            prop_matches_argmax_count, prop_stochastic_draws, utt_unmasked_sum, prop_unmasked_sum,
-            utt_unmasked_first, prop_unmasked_first)
+            prop_matches_argmax_count, prop_stochastic_draws, utt_mask_count, prop_mask_count)
 
 
 def safe_div(a, b):
@@ -259,7 +243,6 @@ def run(args):
     pprint(args_dict)
     pprint(flags_dict)
 
-    type_constr = torch.cuda if FLAGS.enable_cuda else torch
     if args.seed is not None:
         np.random.seed(args.seed)
         torch.manual_seed(args.seed)
@@ -284,9 +267,7 @@ def run(args):
             term_entropy_reg=args.term_entropy_reg,
             utterance_entropy_reg=args.utterance_entropy_reg,
             proposal_entropy_reg=args.proposal_entropy_reg
-        )
-        if FLAGS.enable_cuda:
-            model = model.cuda()
+        ).to(FLAGS.device)
         agent_models.append(model)
         agent_opts.append(optim.Adam(params=agent_models[i].parameters()))
     if path.isfile(args.model_file) and not args.no_load:
@@ -301,24 +282,22 @@ def run(args):
         print('')
         return
     last_print = time.time()
-    rewards_sum = type_constr.FloatTensor(3).fill_(0)
+    rewards_sum = torch.zeros(3).to(FLAGS.device)
     steps_sum = 0
     count_sum = 0
     f_log = open(args.log_file, 'w')
     all_args = {**args_dict, **flags_dict}
     f_log.write('meta: %s\n' % json.dumps(all_args))
     last_save = time.time()
-    baseline = type_constr.FloatTensor(3).fill_(0)
+    baseline = torch.zeros(3).to(FLAGS.device)
     term_matches_argmax_count = 0
     num_policy_runs = 0
     utt_matches_argmax_count = 0
     utt_stochastic_draws = 0
     prop_matches_argmax_count = 0
     prop_stochastic_draws = 0
-    utt_unmasked_count = [0,0]
-    prop_unmasked_count = [0,0]
-    utt_unmasked_first = [0,0]
-    prop_unmasked_first = [0,0]
+    utt_mask_count = np.array([0,0])
+    prop_mask_count = np.array([0,0])
     while episode < args.episodes:
         render = (episode % args.render_every_episode == 0)
         batch = generate_training_batch(batch_size=args.batch_size,
@@ -326,10 +305,9 @@ def run(args):
                                         random_state=train_r)
         (actions, rewards, steps, alive_masks, entropy_loss_by_agent,
          _term_matches_argmax_count, _num_policy_runs, _utt_matches_argmax_count, _utt_stochastic_draws,
-         _prop_matches_argmax_count, _prop_stochastic_draws, _utt_unmasked_count, _prop_unmasked_count,
-         _utt_unmasked_first, _prop_unmasked_first) = run_episode(
+         _prop_matches_argmax_count, _prop_stochastic_draws,
+         _utt_mask_count, _prop_mask_count) = run_episode(
              batch=batch,
-             enable_cuda=FLAGS.enable_cuda,
              agent_models=agent_models,
              batch_size=args.batch_size,
              render=render,
@@ -340,14 +318,8 @@ def run(args):
         num_policy_runs += _num_policy_runs
         prop_matches_argmax_count += _prop_matches_argmax_count
         prop_stochastic_draws += _prop_stochastic_draws
-        utt_unmasked_count[0] += _utt_unmasked_count[0]
-        utt_unmasked_count[1] += _utt_unmasked_count[1]
-        prop_unmasked_count[0] += _prop_unmasked_count[0]
-        prop_unmasked_count[1] += _prop_unmasked_count[1]
-        utt_unmasked_first[0] += _utt_unmasked_first[0]
-        utt_unmasked_first[1] += _utt_unmasked_first[1]
-        prop_unmasked_first[0] += _prop_unmasked_first[0]
-        prop_unmasked_first[1] += _prop_unmasked_first[1]
+        utt_mask_count += _utt_mask_count
+        prop_mask_count += _prop_mask_count
 
         if not args.testing:
             for i in range(2):
@@ -360,7 +332,7 @@ def run(args):
                     rewards_by_agent.append(baselined_rewards[:, 2])
                 else:
                     rewards_by_agent.append(baselined_rewards[:, i])
-            sieve_playback = SievePlayback(alive_masks, enable_cuda=FLAGS.enable_cuda)
+            sieve_playback = SievePlayback(alive_masks)
             for t, global_idxes in sieve_playback:
                 agent = t % 2
                 if len(actions[t]) > 0:
@@ -389,32 +361,25 @@ def run(args):
             test_rewards_sum = np.zeros(3)
             test_count_sum = len(test_batches) * args.batch_size
             test_num_policy_runs = 0
-            test_unmasked_count = [0,0]
-            test_prop_unmasked_count = [0,0]
-            test_utt_unmasked_first = [0,0]
-            test_prop_unmasked_first = [0,0]
+            test_utt_mask_count = [0,0]
+            test_prop_mask_count = [0,0]
+            test_utt_mask_count = np.array([0,0])
+            test_prop_mask_count = np.array([0,0])
             for test_batch in test_batches:
                 # TODO this stuff isn't being used
                 (actions, test_rewards, steps, alive_masks, entropy_loss_by_agent,
                  _term_matches_argmax_count, _test_num_policy_runs, _utt_matches_argmax_count, _utt_stochastic_draws,
-                 _prop_matches_argmax_count, _prop_stochastic_draws, _test_unmasked_count, _test_prop_unmasked_count,
-                 _test_utt_unmasked_first, _test_prop_unmasked_first) = run_episode(
+                 _prop_matches_argmax_count, _prop_stochastic_draws,
+                 _test_utt_mask_count, _test_prop_mask_count) = run_episode(
                      batch=test_batch,
-                     enable_cuda=FLAGS.enable_cuda,
                      agent_models=agent_models,
                      batch_size=args.batch_size,
                      render=True,
                      testing=True)
                 test_rewards_sum += test_rewards.sum(0)
                 test_num_policy_runs += _test_num_policy_runs
-                test_unmasked_count[0] += _test_unmasked_count[0]
-                test_unmasked_count[1] += _test_unmasked_count[1]
-                test_prop_unmasked_count[0] += _test_prop_unmasked_count[0]
-                test_prop_unmasked_count[1] += _test_prop_unmasked_count[1]
-                test_utt_unmasked_first[0] += _test_utt_unmasked_first[0]
-                test_utt_unmasked_first[1] += _test_utt_unmasked_first[1]
-                test_prop_unmasked_first[0] += _test_prop_unmasked_first[0]
-                test_prop_unmasked_first[1] += _test_prop_unmasked_first[1]
+                test_utt_mask_count += _test_utt_mask_count
+                test_prop_mask_count += _test_prop_mask_count
 
             time_since_last = time.time() - last_print
             rewards_str = '%.2f,%.2f,%.2f' % (rewards_sum[0] / count_sum,
@@ -438,17 +403,13 @@ def run(args):
                 prop_matches_argmax_count / prop_stochastic_draws
             ))
             if FLAGS.force_masking_comm:
-                print('utt unmasked {:2.2f},{:2.2f} first {:2.2f},{:2.2f}'.format(
-                    utt_unmasked_count[0] / (3 * num_policy_runs),
-                    utt_unmasked_count[1] / (3 * num_policy_runs),
-                    utt_unmasked_first[0] / (3 * count_sum),
-                    utt_unmasked_first[1] / (3 * count_sum),
+                print('utt mask % {:2.2f},{:2.2f} test % {:2.2f},{:2.2f}'.format(
+                    *utt_mask_count / (3 * num_policy_runs),
+                    *test_utt_mask_count / (3 * num_policy_runs),
                 ))
-                print('prop unmasked {:2.2f},{:2.2f} first {:2.2f},{:2.2f}'.format(
-                    prop_unmasked_count[0] / (3 * num_policy_runs),
-                    prop_unmasked_count[1] / (3 * num_policy_runs),
-                    prop_unmasked_first[0] / (3 * count_sum),
-                    prop_unmasked_first[1] / (3 * count_sum),
+                print('prop mask % {:2.2f},{:2.2f} test % {:2.2f},{:2.2f}'.format(
+                    *prop_mask_count / (3 * num_policy_runs),
+                    *test_prop_mask_count / (3 * num_policy_runs),
                 ))
 
             f_log.write(json.dumps({
@@ -465,22 +426,14 @@ def run(args):
                 'argmaxp_term': term_matches_argmax_count / num_policy_runs,
                 'argmaxp_utt': safe_div(utt_matches_argmax_count, utt_stochastic_draws),
                 'argmaxp_prop': prop_matches_argmax_count / prop_stochastic_draws,
-                'utt_unmasked_A': utt_unmasked_count[0] / (3 * num_policy_runs),
-                'utt_unmasked_B': utt_unmasked_count[1] / (3 * num_policy_runs),
-                'prop_unmasked_A': prop_unmasked_count[0] / (3 * num_policy_runs),
-                'prop_unmasked_B': prop_unmasked_count[1] / (3 * num_policy_runs),
-                'test_unmasked_A': test_unmasked_count[0] / (3 * test_num_policy_runs),
-                'test_unmasked_B': test_unmasked_count[1] / (3 * test_num_policy_runs),
-                'test_prop_unmasked_A': test_prop_unmasked_count[0] / (3 * test_num_policy_runs),
-                'test_prop_unmasked_B': test_prop_unmasked_count[1] / (3 * test_num_policy_runs),
-                'utt_unmasked_A_first': utt_unmasked_first[0] / (3 * count_sum),
-                'utt_unmasked_B_first': utt_unmasked_first[1] / (3 * count_sum),
-                'prop_unmasked_A_first': prop_unmasked_first[0] / (3 * count_sum),
-                'prop_unmasked_B_first': prop_unmasked_first[1] / (3 * count_sum),
-                'test_utt_unmasked_A_first': test_utt_unmasked_first[0] / (3 * test_count_sum),
-                'test_utt_unmasked_B_first': test_utt_unmasked_first[1] / (3 * test_count_sum),
-                'test_prop_unmasked_A_first': test_prop_unmasked_first[0] / (3 * test_count_sum),
-                'test_prop_unmasked_B_first': test_prop_unmasked_first[1] / (3 * test_count_sum),
+                'utt_unmasked_A': utt_mask_count[0] / (3 * num_policy_runs),
+                'utt_unmasked_B': utt_mask_count[1] / (3 * num_policy_runs),
+                'prop_unmasked_A': prop_mask_count[0] / (3 * num_policy_runs),
+                'prop_unmasked_B': prop_mask_count[1] / (3 * num_policy_runs),
+                'test_utt_unmasked_A': test_utt_mask_count[0] / (3 * test_num_policy_runs),
+                'test_utt_unmasked_B': test_utt_mask_count[1] / (3 * test_num_policy_runs),
+                'test_prop_unmasked_A': test_prop_mask_count[0] / (3 * test_num_policy_runs),
+                'test_prop_unmasked_B': test_prop_mask_count[1] / (3 * test_num_policy_runs),
             }) + '\n')
             f_log.flush()
             last_print = time.time()
@@ -493,10 +446,8 @@ def run(args):
             prop_matches_argmax_count = 0
             prop_stochastic_draws = 0
             count_sum = 0
-            utt_unmasked_count = [0,0]
-            prop_unmasked_count = [0,0]
-            utt_unmasked_first = [0,0]
-            prop_unmasked_first = [0,0]
+            utt_mask_count.fill(0)
+            prop_mask_count.fill(0)
 
         if (not args.testing
             and not args.no_save

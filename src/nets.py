@@ -251,8 +251,8 @@ class AgentModel(nn.Module):
         utterance = type_constr.LongTensor(batch_size, FLAGS.utt_max_length).zero_()
         utt_matches_argmax_count = 0
         utt_stochastic_draws = 0
-        utt_mask_count = 0
-        prop_mask_count = 0
+        utt_mask = torch.zeros(batch_size, 3, dtype=torch.int64)
+        prop_mask = torch.zeros(batch_size, 3, dtype=torch.int64)
         if FLAGS.linguistic:
             if (FLAGS.force_utility_comm == 'both'
                 or FLAGS.force_utility_comm == self.name):
@@ -262,11 +262,12 @@ class AgentModel(nn.Module):
                  utt_matches_argmax_count, utt_stochastic_draws) = self.utterance_policy(h_t, testing=testing)
                 nodes += utterance_nodes
                 entropy_loss -= self.utterance_entropy_reg * utterance_entropy
+
                 utterance[:,:3] = utterance_mask[:,:3] * utility
+                utt_mask = utterance_mask[:,:3]
                 if not FLAGS.proposal:
                     utterance[:,3:] = utterance_mask[:,3:] * proposal
-                    prop_mask_count = torch.sum(utterance_mask[:,3:]).item()
-                utt_mask_count = torch.sum(utterance_mask[:,:3]).item()
+                    prop_mask = utterance_mask[:,3:]
             else:
                 utterance_nodes, utterance, utterance_entropy, utt_matches_argmax_count, utt_stochastic_draws = self.utterance_policy( h_t, testing=testing)
                 nodes += utterance_nodes
@@ -277,4 +278,4 @@ class AgentModel(nn.Module):
                 term_matches_argmax_count,
                 utt_matches_argmax_count, utt_stochastic_draws,
                 prop_matches_argmax_count, prop_stochastic_draws,
-                utt_mask_count, prop_mask_count)
+                utt_mask, prop_mask)

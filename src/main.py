@@ -10,6 +10,7 @@ from ecn import run
 FLAGS = flags.FLAGS
 
 flags.DEFINE_boolean('enable_cuda', True, 'executing on gpu')
+flags.DEFINE_enum('device', None, ['cuda', 'cpu'], 'device to execute on')
 
 # game args
 flags.DEFINE_integer('utt_max_length', 6, 'max length of an utterance')
@@ -77,6 +78,16 @@ def parse_flags(argv):
     del args.__dict__['name']
     del args.__dict__['logdir']
     del args.__dict__['model_dir']
+
+    if (FLAGS.device == 'cpu' and FLAGS.enable_cuda
+        or FLAGS.device == 'gpu' and not FLAGS.enable_cuda):
+        raise Exception('device must match enable_cuda')
+    else:
+        FLAGS.device = 'cuda' if FLAGS.enable_cuda else 'cpu'
+
+    if ((FLAGS.force_masking_comm or FLAGS.force_utility_comm)
+        and not FLAGS.linguistic):
+        raise Exception('linguistic channel must be on to use making or utility comm')
 
     return args
 

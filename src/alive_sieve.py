@@ -1,17 +1,19 @@
 """
 Handle alive/dead masks
 """
+from absl import flags
 import torch
+
+FLAGS = flags.FLAGS
 
 
 class AliveSieve(object):
-    def __init__(self, batch_size, enable_cuda):
+    def __init__(self, batch_size):
         """
         assume all alive to start with, with given batch_size
         """
         self.batch_size = batch_size
-        self.enable_cuda = enable_cuda
-        self.type_constr = torch.cuda if enable_cuda else torch
+        self.type_constr = torch.cuda if FLAGS.enable_cuda else torch
         self.alive_mask = self.type_constr.ByteTensor(batch_size).fill_(1)
         self.alive_idxes = self.mask_to_idxes(self.alive_mask)
         """
@@ -92,9 +94,9 @@ class SievePlayback(object):
     Given a list of alive_masks, will loop through these, providing a tuple of
     t, and the global idxes at each loop step
     """
-    def __init__(self, alive_masks, enable_cuda):
+    def __init__(self, alive_masks):
         self.alive_masks = alive_masks
-        self.type_constr = torch.cuda if enable_cuda else torch
+        self.type_constr = torch.cuda if FLAGS.enable_cuda else torch
 
     def __iter__(self):
         batch_size = self.alive_masks[0].size()[0]
