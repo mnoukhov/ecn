@@ -21,7 +21,6 @@ from os import path
 import yaml
 import torch
 from torch import nn, autograd, optim
-from torch.autograd import Variable
 import torch.nn.functional as F
 import numpy as np
 
@@ -79,13 +78,13 @@ def _test_term_policy(term_entropy_reg, embedding_size, num_values, batch_size):
         batch_term[n] = train[n]['term']
     baseline = 0
     while True:
-        pred_enc = proposalencoder(Variable(batch_X))
+        pred_enc = proposalencoder(batch_X)
         combined = combiner(pred_enc)
         term_probs, term_eligibility, term_a, entropy, argmax_matches = term_policy(combined, testing=False)
         reward = (term_a.view(-1) == batch_term).float()
 
         opt.zero_grad()
-        reward_loss = - term_eligibility * Variable(reward.view(-1, 1))
+        reward_loss = - term_eligibility * reward.view(-1, 1)
         reward_loss = reward_loss.sum()
         ent_loss = - term_entropy_reg * entropy
         loss = reward_loss + ent_loss
@@ -147,7 +146,7 @@ def _test_proposal_policy(proposal_entropy_reg, embedding_size, num_values, batc
         batch_prev_prop = batch_prev_prop.cuda()
         batch_this_prop = batch_this_prop.cuda()
     while True:
-        pred_enc = proposalencoder(Variable(batch_prev_prop))
+        pred_enc = proposalencoder(batch_prev_prop)
         combined = combiner(pred_enc)
         proposal_nodes, proposal, entropy, matches_argmax_count, stochastic_draws_count = proposal_policy(combined, testing=False)
         reward = (proposal == batch_this_prop).float().sum(1)
@@ -155,7 +154,7 @@ def _test_proposal_policy(proposal_entropy_reg, embedding_size, num_values, batc
         opt.zero_grad()
         reward_loss = 0
         for elig in proposal_nodes:
-            reward_loss -= elig * Variable(reward.view(-1, 1))
+            reward_loss -= elig * reward.view(-1, 1)
         reward_loss = reward_loss.sum()
         ent_loss = - proposal_entropy_reg * entropy
         loss = reward_loss + ent_loss
@@ -218,7 +217,7 @@ def _test_utterance_policy(utterance_entropy_reg, embedding_size, num_values, ba
         batch_prev_prop = batch_prev_prop.cuda()
         batch_this_utt = batch_this_utt.cuda()
     while True:
-        pred_enc = proposalencoder(Variable(batch_prev_prop))
+        pred_enc = proposalencoder(batch_prev_prop)
         combined = combiner(pred_enc)
         utterance_nodes, utterance, entropy, matches_argmax_count, stochastic_draws_count = utterance_policy(combined, testing=False)
         reward = (utterance == batch_this_utt).float().sum(1)
@@ -226,7 +225,7 @@ def _test_utterance_policy(utterance_entropy_reg, embedding_size, num_values, ba
         opt.zero_grad()
         reward_loss = 0
         for elig in utterance_nodes:
-            reward_loss -= elig * Variable(reward.view(-1, 1))
+            reward_loss -= elig * reward.view(-1, 1)
         reward_loss = reward_loss.sum()
         ent_loss = - utterance_entropy_reg * entropy
         loss = reward_loss + ent_loss

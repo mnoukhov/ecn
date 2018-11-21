@@ -13,8 +13,7 @@ class AliveSieve(object):
         assume all alive to start with, with given batch_size
         """
         self.batch_size = batch_size
-        self.type_constr = torch.cuda if FLAGS.enable_cuda else torch
-        self.alive_mask = self.type_constr.ByteTensor(batch_size).fill_(1)
+        self.alive_mask = torch.ones(batch_size, dtype=torch.uint8).to(FLAGS.device)
         self.alive_idxes = self.mask_to_idxes(self.alive_mask)
         """
         out_idxes are the indexes of the current members of alivesieve, in the original batch
@@ -68,7 +67,7 @@ class AliveSieve(object):
         self.out_idxes = self.out_idxes[self.alive_idxes]
 
         self.batch_size = self.alive_mask.int().sum().item()
-        self.alive_mask = self.type_constr.ByteTensor(self.batch_size).fill_(1)
+        self.alive_mask = torch.ones(self.batch_size, dtype=torch.uint8).to(FLAGS.device)
         self.alive_idxes = self.mask_to_idxes(self.alive_mask)
 
     def sieve_tensor(self, t):
@@ -96,11 +95,10 @@ class SievePlayback(object):
     """
     def __init__(self, alive_masks):
         self.alive_masks = alive_masks
-        self.type_constr = torch.cuda if FLAGS.enable_cuda else torch
 
     def __iter__(self):
         batch_size = self.alive_masks[0].size()[0]
-        global_idxes = self.type_constr.ByteTensor(batch_size).fill_(1).nonzero().long().view(-1)
+        global_idxes = torch.LongTensor(range(batch_size)).to(FLAGS.device)
         T = len(self.alive_masks)
         for t in range(T):
             self.batch_size = len(global_idxes)

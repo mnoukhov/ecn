@@ -9,7 +9,6 @@ import numpy as np
 import torch
 from absl import flags
 from torch import optim
-from torch.autograd import Variable
 from pprint import pprint
 
 from src.alive_sieve import AliveSieve, SievePlayback
@@ -153,10 +152,10 @@ def run_episode(
         (nodes, term_a, s.m_prev, this_proposal, _entropy_loss,
          _term_matches_argmax_count, _utt_matches_argmax_count, _utt_stochastic_draws,
          _prop_matches_argmax_count, _prop_stochastic_draws, _utt_mask, _prop_mask) = agent_model(
-             pool=Variable(s.pool),
-             utility=Variable(s.utilities[:, agent]),
-             m_prev=Variable(_prev_message),
-             prev_proposal=Variable(_prev_proposal),
+             pool=s.pool,
+             utility=s.utilities[:, agent],
+             m_prev=_prev_message,
+             prev_proposal=_prev_proposal,
              testing=testing,
          )
         entropy_loss_by_agent[agent] += _entropy_loss
@@ -338,7 +337,7 @@ def run(args):
                         _reward = _rewards[global_idxes].float().contiguous().view(
                             sieve_playback.batch_size, 1)
                         #TODO find overflow
-                        _reward_loss = - (action * Variable(_reward))
+                        _reward_loss = - (action * _reward)
                         _reward_loss = _reward_loss.sum()
                         reward_loss_by_agent[agent] += _reward_loss
             for i in range(2):

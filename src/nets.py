@@ -2,7 +2,6 @@ import torch
 import torch.nn.functional as F
 from absl import flags
 from torch import nn, autograd
-from torch.autograd import Variable
 
 FLAGS = flags.FLAGS
 
@@ -86,19 +85,18 @@ class UtterancePolicy(nn.Module):
     def forward(self, h_t, testing, eps=1e-8):
         batch_size = h_t.size()[0]
 
-        type_constr = torch.cuda if h_t.is_cuda else torch
-        h = h_t
-        c = Variable(type_constr.FloatTensor(batch_size, self.embedding_size).fill_(0))
-
-        last_token = type_constr.LongTensor(batch_size).fill_(0)
         utterance_nodes = []
-        type_constr = torch.cuda if h_t.is_cuda else torch
-        utterance = type_constr.LongTensor(batch_size, self.max_len).fill_(0)
+        utterance = torch.zeros(batch_size, self.max_len, dtype=torch.int64).to(FLAGS.device)
+        last_token = torch.zeros(batch_size, dtype=torch.int64).to(FLAGS.device)
         entropy = 0
         matches_argmax_count = 0
         stochastic_draws_count = 0
+
+        h = h_t
+        c = torch.zeros(batch_size, self.embedding_size).to(FLAGS.device)
+
         for i in range(self.max_len):
-            embedded = self.embedding(Variable(last_token))
+            embedded = self.embedding(last_token)
             h, c = self.lstm(embedded, (h, c))
             logits = self.h1(h)
             probs = F.softmax(logits, dim=1)
@@ -109,7 +107,7 @@ class UtterancePolicy(nn.Module):
             log_g = None
             if not testing:
                 a = torch.multinomial(probs, 1)
-                g = torch.gather(probs, 1, Variable(a.data))
+                g = torch.gather(probs, 1, a.data)
                 log_g = g.log()
                 a = a.data
             else:
@@ -144,10 +142,9 @@ class ProposalPolicy(nn.Module):
         batch_size = x.size()[0]
         nodes = []
         entropy = 0
-        type_constr = torch.cuda if x.is_cuda else torch
         matches_argmax_count = 0
         stochastic_draws = 0
-        proposal = type_constr.LongTensor(batch_size, self.num_items).fill_(0)
+        proposal = torch.zeros(batch_size, self.num_items, dtype=torch.int64).to(FLAGS.device)
         for i in range(self.num_items):
             logits = self.fcs[i](x)
             probs = F.softmax(logits, dim=1)
@@ -158,7 +155,7 @@ class ProposalPolicy(nn.Module):
             log_g = None
             if not testing:
                 a = torch.multinomial(probs, 1)
-                g = torch.gather(probs, 1, Variable(a.data))
+                g = torch.gather(probs, 1, a.data)
                 log_g = g.log()
                 a = a.data
             else:
@@ -218,12 +215,11 @@ class AgentModel(nn.Module):
         c_h = self.context_net(context)
 
         batch_size = pool.size()[0]
-        type_constr = torch.cuda if context.is_cuda else torch
 
         if FLAGS.linguistic:
             m_h = self.utterance_net(m_prev)
         else:
-            m_h = Variable(type_constr.FloatTensor(batch_size, self.embedding_size).fill_(0))
+            m_h = torch.zeros(batch_size, self.embedding_size).to(FLAGS.device)
 
         p_h = self.proposal_net(prev_proposal)
 
@@ -248,11 +244,11 @@ class AgentModel(nn.Module):
         entropy_loss -= self.proposal_entropy_reg * proposal_entropy
 
         # generate utterance
-        utterance = type_constr.LongTensor(batch_size, FLAGS.utt_max_length).zero_()
+        utterance = torch.zeros(batch_size, FLAGS.utt_max_length, dtype=torch.int64).to(FLAGS.device)
         utt_matches_argmax_count = 0
         utt_stochastic_draws = 0
-        utt_mask = torch.zeros(batch_size, 3, dtype=torch.int64)
-        prop_mask = torch.zeros(batch_size, 3, dtype=torch.int64)
+        utt_mask = torch.zeros(batch_size, 3, dtype=torch.int64).to(FLAGS.device)
+        prop_mask = torch.zeros(batch_size, 3, dtype=torch.int64).to(FLAGS.device)
         if FLAGS.linguistic:
             if (FLAGS.force_utility_comm == 'both'
                 or FLAGS.force_utility_comm == self.name):
