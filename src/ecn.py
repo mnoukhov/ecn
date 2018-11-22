@@ -114,7 +114,7 @@ def run_episode(
     # next two tensors wont be sieved, they will stay same size throughout
     # entire batch, we will update them using sieve.out_idxes[...]
     rewards = torch.zeros(batch_size, 3).to(FLAGS.device)
-    num_steps = torch.LongTensor(batch_size).fill_(10).to(FLAGS.device)
+    num_steps = torch.full(batch_size, FLAGS.max_timesteps, dtype=torch.int64).to(FLAGS.device)
     term_matches_argmax_count = 0
     utt_matches_argmax_count = 0
     utt_stochastic_draws = 0
