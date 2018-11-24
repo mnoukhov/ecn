@@ -72,19 +72,12 @@ class State(object):
         batch_size = N.size()[0]
         self.N = N
         self.pool = pool
-        self.utilities = torch.zeros(batch_size, 2, 3).long()
+        self.utilities = torch.zeros(batch_size, 2, 3, dtype=torch.int64, device=FLAGS.device)
         self.utilities[:, 0] = utilities[0]
         self.utilities[:, 1] = utilities[1]
 
-        self.last_proposal = torch.zeros(batch_size, 3).long()
-        self.m_prev = torch.zeros(batch_size, FLAGS.utt_max_length).long()
-
-    def to(self, device):
-        self.N = self.N.to(device)
-        self.pool = self.pool.to(device)
-        self.utilities = self.utilities.to(device)
-        self.last_proposal = self.last_proposal.to(device)
-        self.m_prev = self.m_prev.to(device)
+        self.last_proposal = torch.zeros(batch_size, 3, dtype=torch.int64, device=FLAGS.device)
+        self.m_prev = torch.zeros(batch_size, FLAGS.utt_max_length, dtype=torch.int64, device=FLAGS.device)
 
     def sieve_(self, still_alive_idxes):
         self.N = self.N[still_alive_idxes]
@@ -105,7 +98,6 @@ def run_episode(
     """
 
     s = State(**batch)
-    s.to(FLAGS.device)
 
     sieve = AliveSieve(batch_size=batch_size)
     actions_by_timestep = []
@@ -113,20 +105,21 @@ def run_episode(
 
     # next two tensors wont be sieved, they will stay same size throughout
     # entire batch, we will update them using sieve.out_idxes[...]
-    rewards = torch.zeros(batch_size, 3).to(FLAGS.device)
-    num_steps = torch.full(batch_size, FLAGS.max_timesteps, dtype=torch.int64).to(FLAGS.device)
+    rewards = torch.zeros(batch_size, 3, device=FLAGS.device)
+    num_steps = torch.full((batch_size,), FLAGS.max_timesteps, dtype=torch.int64, device=FLAGS.device)
     term_matches_argmax_count = 0
     utt_matches_argmax_count = 0
     utt_stochastic_draws = 0
     num_policy_runs = 0
     prop_matches_argmax_count = 0
     prop_stochastic_draws = 0
-    utt_mask = torch.zeros(2, batch_size, 3, dtype=torch.int64).to(FLAGS.device)
-    prop_mask = torch.zeros(2, batch_size, 3, dtype=torch.int64).to(FLAGS.device)
+    utt_mask = torch.zeros(2, batch_size, 3, dtype=torch.int64, device=FLAGS.device)
+    prop_mask = torch.zeros(2, batch_size, 3, dtype=torch.int64, device=FLAGS.device)
 
+    # TODO change from list to just a tensor
     entropy_loss_by_agent = [
-        torch.zeros(1).to(FLAGS.device),
-        torch.zeros(1).to(FLAGS.device)
+        torch.zeros(1, device=FLAGS.device),
+        torch.zeros(1, device=FLAGS.device)
     ]
     if render:
         print('  ')
@@ -140,12 +133,12 @@ def run_episode(
         if FLAGS.linguistic:
             _prev_message = s.m_prev
         else:
-            _prev_message = torch.zeros(sieve.batch_size, 6, dtype=torch.int64).to(FLAGS.device)
+            _prev_message = torch.zeros(sieve.batch_size, 6, dtype=torch.int64, device=FLAGS.device)
 
         if FLAGS.proposal:
             _prev_proposal = s.last_proposal
         else:
-            _prev_proposal = torch.zeros(sieve.batch_size, 3, dtype=torch.int64).to(FLAGS.device)
+            _prev_proposal = torch.zeros(sieve.batch_size, 3, dtype=torch.int64, device=FLAGS.device)
 
         agent = t % 2
         agent_model = agent_models[agent]
@@ -278,14 +271,14 @@ def run(args):
         print('')
         return
     last_print = time.time()
-    rewards_sum = torch.zeros(3).to(FLAGS.device)
+    rewards_sum = torch.zeros(3, device=FLAGS.device)
     steps_sum = 0
     count_sum = 0
     f_log = open(args.log_file, 'w')
     all_args = {**args_dict, **flags_dict}
     f_log.write('meta: %s\n' % json.dumps(all_args))
     last_save = time.time()
-    baseline = torch.zeros(3).to(FLAGS.device)
+    baseline = torch.zeros(3, device=FLAGS.device)
     term_matches_argmax_count = 0
     num_policy_runs = 0
     utt_matches_argmax_count = 0
