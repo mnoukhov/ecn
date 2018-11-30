@@ -96,9 +96,9 @@ def generate_batch(batch_size, random_state=np.random):
                  max_timesteps=FLAGS.max_timesteps,
                  random_state=random_state)
     return {
-        'pool': torch.from_numpy(pool),
-        'utilities': torch.from_numpy(utilities),
-        'N': torch.from_numpy(N)
+        'pool': torch.as_tensor(pool, device=FLAGS.device),
+        'utilities': torch.as_tensor(utilities, device=FLAGS.device),
+        'N': torch.as_tensor(N, device=FLAGS.device),
     }
 
 
@@ -120,7 +120,7 @@ def generate_test_batches(batch_size, num_batches, random_state):
 
 def hash_long_batch(int_batch, max_quantity):
     num_items = int_batch.size()[1]
-    multiplier = torch.LongTensor(num_items)
+    multiplier = torch.LongTensor(num_items).to(FLAGS.device)
     v = 1
     for i in range(num_items):
         multiplier[-i - 1] = v

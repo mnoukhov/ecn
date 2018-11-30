@@ -152,7 +152,7 @@ def parse_logfile(logfile):
     with open(logfile, 'r') as f:
         for n, line in enumerate(f):
             if n == 0:
-                print(logfile, line)
+                print(logfile)
                 continue  # skip first line
             line = line.strip()
             if line == '':
