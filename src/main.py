@@ -36,6 +36,7 @@ flags.DEFINE_float('prosociality', 0, 'alpha of prosociality for selfish agents'
 flags.DEFINE_boolean('force_masking_comm', False, 'force agents to communicate by masking their utilities')
 flags.DEFINE_boolean('random_start', False, 'randomly choose which agent starts the negotiation')
 flags.DEFINE_boolean('proposal_termination', False, 'term policy does nothing, to terminate agent must propose the same as the previous proposal')
+flags.DEFINE_boolean('zero_sum_reward', False, 'R_A = r_A - r_B')
 
 
 def parse_flags(argv):

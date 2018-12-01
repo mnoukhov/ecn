@@ -80,4 +80,8 @@ def calc_rewards(t, s, term):
             else:
                 rewards_batch[b][i] = raw_rewards[b][i] / max_agent[i]
 
+        if FLAGS.zero_sum_reward:
+            rewards_batch[b][0] = rewards_batch[b][0] - rewards_batch[b][1]
+            rewards_batch[b][1] = -rewards_batch[b][0]
+
     return rewards_batch
