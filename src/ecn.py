@@ -28,19 +28,19 @@ def render_action(t, s, prop, term):
     print('  ', end='')
     if speaker == 'B':
         print('                                   ', end='')
-    if term[0][0]:
-        print(' ACC')
-    else:
-        print(' ' + ''.join([str(v) for v in s.m_prev[0].view(-1).tolist()]), end='')
-        print(' %s/%s %s/%s %s/%s' % (
-            prop[0][0].item(), s.pool[0][0].item(),
-            prop[0][1].item(), s.pool[0][1].item(),
-            prop[0][2].item(), s.pool[0][2].item(),
-        ), end='')
-        print('')
-        if t + 1 == s.N[0]:
-            print('  [out of time]')
 
+    print(' ' + ''.join([str(v) for v in s.m_prev[0].view(-1).tolist()]), end='')
+    print(' %s/%s %s/%s %s/%s' % (
+        prop[0][0].item(), s.pool[0][0].item(),
+        prop[0][1].item(), s.pool[0][1].item(),
+        prop[0][2].item(), s.pool[0][2].item(),
+    ), end='')
+    print('')
+
+    if t + 1 == s.N[0]:
+        print(' [out of time]')
+    elif term[0][0]:
+        print(' ACC')
 
 def save_model(model_file, agent_models, agent_opts, start_time, episode):
     state = {}
