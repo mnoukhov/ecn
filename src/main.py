@@ -67,10 +67,13 @@ def parse_flags(argv):
     parser.add_argument('--model_dir', type=str, default='model_saves')
     args = parser.parse_args()
 
-    slurm_id = os.environ.get('SLURM_ARRAY_JOB_ID', '')
+
+    job_id = os.environ.get('SLURM_ARRAY_JOB_ID', '')
     task_id = os.environ.get('SLURM_ARRAY_TASK_ID', '')
     if task_id:
-        slurm_id = '{}_{}'.format(slurm_id, task_id)
+        slurm_id = '{}_{}'.format(job_id, task_id)
+    else:
+        slurm_id = os.environ.get('SLURM_JOB_ID', '')
 
     args.log_file = '{}/{}_{}_%Y%m%d.log'.format(args.logdir, args.name, slurm_id)
     args.log_file = datetime.datetime.strftime(datetime.datetime.now(), args.log_file)
