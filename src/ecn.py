@@ -201,7 +201,7 @@ def run_episode(
         print('  ')
 
     utt_mask_count = utt_mask.sum(dim=[1,2]).cpu().numpy()
-    prop_mask_count = utt_mask.sum(dim=[1,2]).cpu().numpy()
+    prop_mask_count = prop_mask.sum(dim=[1,2]).cpu().numpy()
 
     return (actions_by_timestep, rewards, num_steps, alive_masks, entropy_loss_by_agent,
             term_matches_argmax_count, num_policy_runs, utt_matches_argmax_count, utt_stochastic_draws,
@@ -379,6 +379,10 @@ def run(args):
                                                    test_rewards_sum[1] / test_count_sum,
                                                    test_rewards_sum[2] / test_count_sum)
             baseline_str = '%.2f,%.2f,%.2f' % (baseline[0], baseline[1], baseline[2])
+            utt_mask_pct = utt_mask_count / (3 * count_sum)
+            test_utt_mask_pct = test_utt_mask_count / (3 * test_count_sum)
+            prop_mask_pct = prop_mask_count / (3 * count_sum)
+            test_prop_mask_pct = test_prop_mask_count / (3 * test_count_sum)
             print('test  {}'.format(test_rewards_str))
             print('train {}'.format(rewards_str))
             print('base  {}'.format(baseline_str))
@@ -394,12 +398,10 @@ def run(args):
             ))
             if FLAGS.force_masking_comm:
                 print('utt mask % {:2.2f},{:2.2f} test % {:2.2f},{:2.2f}'.format(
-                    *utt_mask_count / (3 * num_policy_runs),
-                    *test_utt_mask_count / (3 * num_policy_runs),
+                    *utt_mask_pct, *test_utt_mask_pct,
                 ))
                 print('prop mask % {:2.2f},{:2.2f} test % {:2.2f},{:2.2f}'.format(
-                    *prop_mask_count / (3 * num_policy_runs),
-                    *test_prop_mask_count / (3 * num_policy_runs),
+                    *prop_mask_pct, *test_prop_mask_pct,
                 ))
 
             f_log.write(json.dumps({
@@ -416,14 +418,14 @@ def run(args):
                 'argmaxp_term': term_matches_argmax_count / num_policy_runs,
                 'argmaxp_utt': safe_div(utt_matches_argmax_count, utt_stochastic_draws),
                 'argmaxp_prop': prop_matches_argmax_count / prop_stochastic_draws,
-                'utt_unmasked_A': utt_mask_count[0] / (3 * num_policy_runs),
-                'utt_unmasked_B': utt_mask_count[1] / (3 * num_policy_runs),
-                'prop_unmasked_A': prop_mask_count[0] / (3 * num_policy_runs),
-                'prop_unmasked_B': prop_mask_count[1] / (3 * num_policy_runs),
-                'test_utt_unmasked_A': test_utt_mask_count[0] / (3 * test_num_policy_runs),
-                'test_utt_unmasked_B': test_utt_mask_count[1] / (3 * test_num_policy_runs),
-                'test_prop_unmasked_A': test_prop_mask_count[0] / (3 * test_num_policy_runs),
-                'test_prop_unmasked_B': test_prop_mask_count[1] / (3 * test_num_policy_runs),
+                'utt_unmasked_A': utt_mask_pct[0],
+                'utt_unmasked_B': utt_mask_pct[1],
+                'prop_unmasked_A': prop_mask_pct[0],
+                'prop_unmasked_B': prop_mask_pct[1],
+                'test_utt_unmasked_A': test_utt_mask_pct[0],
+                'test_utt_unmasked_B': test_utt_mask_pct[1],
+                'test_prop_unmasked_A': test_prop_mask_pct[0],
+                'test_prop_unmasked_B': test_prop_mask_pct[1],
             }) + '\n')
             f_log.flush()
             last_print = time.time()
