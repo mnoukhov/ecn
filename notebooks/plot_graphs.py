@@ -73,31 +73,14 @@ def plot(epochs, rewards, title=None, min_y=None, max_y=None,
             elif ('train' in name) and not ('train' in show_unmasked):
                 continue
 
-            if ('first' in name) and ('first' in show_unmasked):
-                if name in rename:
-                    name = rename[name]
-                extra_args = plot_args.get(name, None)
-                if extra_args:
-                    plt.plot(epochs, values, **extra_args, label=name)
-                else:
-                    plt.plot(epochs, values, label=name)
-            elif ('avg' in show_unmasked):
-                if name in rename:
-                    name = rename[name]
-                extra_args = plot_args.get(name, None)
-                if extra_args:
-                    plt.plot(epochs, values, **extra_args, label=name)
-                else:
-                    plt.plot(epochs, values, label=name)
-
+        if name in rename:
+            name = rename[name]
+        extra_args = plot_args.get(name, None)
+        if extra_args:
+            plt.plot(epochs, values, **extra_args, label=name)
         else:
-            if name in rename:
-                name = rename[name]
-            extra_args = plot_args.get(name, None)
-            if extra_args:
-                plt.plot(epochs, values, **extra_args, label=name)
-            else:
-                plt.plot(epochs, values, label=name)
+            plt.plot(epochs, values, label=name)
+
     if title:
         plt.title(title)
 

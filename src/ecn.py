@@ -42,6 +42,7 @@ def render_action(t, s, prop, term):
     elif term[0][0]:
         print(' ACC')
 
+
 def save_model(model_file, agent_models, agent_opts, start_time, episode):
     state = {}
     for i in range(2):
