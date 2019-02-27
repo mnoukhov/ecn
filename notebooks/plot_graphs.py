@@ -46,7 +46,8 @@ def plot_one(logfile, **args):
 
 def plot(epochs, rewards, title=None, min_y=None, max_y=None,
          show_train=False, show_both=True, show_unmasked=False,
-         show_argmax=False, rename={}, plot_args={}, legend_loc='best'):
+         show_argmax=False, rename={}, plot_args={}, legend_loc='best',
+         save=False):
     if min_y is None:
         min_y = 0
     if max_y is not None:
@@ -90,8 +91,11 @@ def plot(epochs, rewards, title=None, min_y=None, max_y=None,
     else:
         plt.ylabel('Normalized Reward')
     plt.legend(loc=legend_loc)
-    plt.show()
-    # plt.savefig('/tmp/out-reward.png')
+    if save:
+        plt.savefig('/home/mnoukhov/Downloads/{}.pdf'.format(save),
+                   format='pdf')
+    else:
+        plt.show()
 
 
 def plot_folder(logdir, **args):
