@@ -18,7 +18,6 @@ import time
 import os
 from os import path
 
-import yaml
 import torch
 from torch import nn, autograd, optim
 import torch.nn.functional as F

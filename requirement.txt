@@ -1,0 +1,4 @@
+pytorch
+matplotlib
+pytest
+absl-py

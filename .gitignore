@@ -135,4 +135,4 @@ merge.yaml
 merge.sh
 
 *.ipynb
-
+ecn-env/
