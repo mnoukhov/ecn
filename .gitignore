@@ -129,6 +129,7 @@ ENV/
  mypy
 .mypy_cache/
 model_saves/*
+logs/*
 old-models/
 
 merge.yaml
