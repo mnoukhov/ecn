@@ -9,7 +9,7 @@ from ecn import run
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_boolean('enable_cuda', True, 'executing on gpu')
+flags.DEFINE_boolean('enable_cuda', True, 'DEPRECATED executing on gpu')
 flags.DEFINE_enum('device', None, ['cuda', 'cpu'], 'device to execute on')
 
 # game args
@@ -80,14 +80,6 @@ def parse_flags(argv):
     args.model_file = '{}/{}_{}_%Y%m%d.dat'.format(args.model_dir, args.name, slurm_id)
     args.model_file = datetime.datetime.strftime(datetime.datetime.now(), args.model_file)
     del args.__dict__['name']
-    del args.__dict__['logdir']
-    del args.__dict__['model_dir']
-
-    if (FLAGS.device == 'cpu' and FLAGS.enable_cuda
-        or FLAGS.device == 'gpu' and not FLAGS.enable_cuda):
-        raise Exception('device must match enable_cuda')
-    else:
-        FLAGS.device = 'cuda' if FLAGS.enable_cuda else 'cpu'
 
     if ((FLAGS.force_masking_comm or FLAGS.force_utility_comm)
         and not FLAGS.linguistic):

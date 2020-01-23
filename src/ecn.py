@@ -130,6 +130,9 @@ def run_episode(
               '{} {} {}'.format(*s.pool[0].tolist()),
               '          ',
               '{}   {}   {}'.format(*s.utilities[0][1].tolist()))
+
+    # initial_agent = np.random.choice([0,1])
+
     for t in range(FLAGS.max_timesteps):
         if FLAGS.linguistic:
             _prev_message = s.m_prev
@@ -142,6 +145,7 @@ def run_episode(
             _prev_proposal = torch.zeros(sieve.batch_size, 3, dtype=torch.int64, device=FLAGS.device)
 
         agent = t % 2
+        # agent = (initial_agent + t) % 2
         agent_model = agent_models[agent]
         (nodes, term_a, s.m_prev, this_proposal, _entropy_loss,
          _term_matches_argmax_count, _utt_matches_argmax_count, _utt_stochastic_draws,
@@ -232,6 +236,9 @@ def run(args):
     args_dict = args.__dict__
     pprint(args_dict)
     pprint(flags_dict)
+
+    os.makedirs(args.model_dir, exist_ok=True)
+    os.makedirs(args.logdir, exist_ok=True)
 
     if args.seed is not None:
         np.random.seed(args.seed)
@@ -366,7 +373,7 @@ def run(args):
                      batch_size=args.batch_size,
                      render=True,
                      testing=True)
-                test_rewards_sum += test_rewards.sum(0)
+                test_rewards_sum += test_rewards.sum(0).numpy()
                 test_num_policy_runs += _test_num_policy_runs
                 test_utt_mask_count += _test_utt_mask_count
                 test_prop_mask_count += _test_prop_mask_count
