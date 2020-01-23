@@ -52,6 +52,7 @@ def parse_flags(argv):
     parser.add_argument('--test-seed', type=int, default=123, help='used for generating test game set')
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--episodes', type=int, default=5e5, help='total number of episodes to run')
+    parser.add_argument('--name', help='experiment name for wandb')
     # hyperparams
     parser.add_argument('--term-entropy-reg', type=float, default=0.05)
     parser.add_argument('--utterance-entropy-reg', type=float, default=0.001)

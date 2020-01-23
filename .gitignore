@@ -128,9 +128,10 @@ ENV/
 # my stuff
  mypy
 .mypy_cache/
-model_saves/*
-logs/*
+model_saves/
+logs/
 old-models/
+wandb/
 
 merge.yaml
 merge.sh

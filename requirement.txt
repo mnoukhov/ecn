@@ -2,3 +2,4 @@ torch
 matplotlib
 pytest
 absl-py
+wandb

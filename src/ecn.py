@@ -10,6 +10,7 @@ import torch
 from absl import flags
 from torch import optim
 from pprint import pprint
+import wandb
 
 from src.alive_sieve import AliveSieve, SievePlayback
 from src.nets import AgentModel
@@ -232,6 +233,9 @@ def run(args):
     - not run optimizers
     - not save model
     """
+    wandb.init(project='ecn', name=args.name)
+    wandb.config.update(args)
+    wandb.config.update(FLAGS)
     flags_dict = {flag.name: flag.value for flag in FLAGS.flags_by_module_dict()['src/main.py']}
     args_dict = args.__dict__
     pprint(args_dict)
@@ -267,6 +271,7 @@ def run(args):
         ).to(FLAGS.device)
         agent_models.append(model)
         agent_opts.append(optim.Adam(params=agent_models[i].parameters()))
+    wandb.watch(agent_models)
     if path.isfile(args.model_file) and not args.no_load:
         episode, start_time = load_model(
             model_file=args.model_file,
@@ -411,7 +416,7 @@ def run(args):
                     *prop_mask_pct, *test_prop_mask_pct,
                 ))
 
-            f_log.write(json.dumps({
+            episode_log = {
                 'episode': episode,
                 'avg_reward_A': (rewards_sum[0] / count_sum).item(),
                 'avg_reward_B': (rewards_sum[1] / count_sum).item(),
@@ -433,8 +438,10 @@ def run(args):
                 'test_utt_unmasked_B': test_utt_mask_pct[1],
                 'test_prop_unmasked_A': test_prop_mask_pct[0],
                 'test_prop_unmasked_B': test_prop_mask_pct[1],
-            }) + '\n')
+            }
+            f_log.write(json.dumps(episode_log) + '\n')
             f_log.flush()
+            wandb.log(episode_log)
             last_print = time.time()
             steps_sum = 0
             rewards_sum.fill_(0)
