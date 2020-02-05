@@ -3,4 +3,4 @@
 export PROJECT=$HOME/ecn
 export PYTHONPATH=$PYTHONPATH:$PROJECT
 
-source ecn-env/bin/activate
+#source ecn-env/bin/activate
