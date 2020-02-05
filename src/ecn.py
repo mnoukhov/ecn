@@ -233,9 +233,10 @@ def run(args):
     - not run optimizers
     - not save model
     """
-    wandb.init(project='ecn', name=args.name)
-    wandb.config.update(args)
-    wandb.config.update(FLAGS)
+    if args.wandb:
+        wandb.init(project='ecn', name=args.name, dir=f'{args.savedir}')
+        wandb.config.update(args)
+        wandb.config.update(FLAGS)
     flags_dict = {flag.name: flag.value for flag in FLAGS.flags_by_module_dict()['src/main.py']}
     args_dict = args.__dict__
     pprint(args_dict)
@@ -271,7 +272,8 @@ def run(args):
         ).to(FLAGS.device)
         agent_models.append(model)
         agent_opts.append(optim.Adam(params=agent_models[i].parameters()))
-    wandb.watch(agent_models)
+    if args.wandb:
+        wandb.watch(agent_models)
     if path.isfile(args.model_file) and not args.no_load:
         episode, start_time = load_model(
             model_file=args.model_file,
@@ -441,7 +443,8 @@ def run(args):
             }
             f_log.write(json.dumps(episode_log) + '\n')
             f_log.flush()
-            wandb.log(episode_log)
+            if args.wandb:
+                wandb.log(episode_log)
             last_print = time.time()
             steps_sum = 0
             rewards_sum.fill_(0)

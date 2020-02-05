@@ -52,7 +52,6 @@ def parse_flags(argv):
     parser.add_argument('--test-seed', type=int, default=123, help='used for generating test game set')
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--episodes', type=int, default=5e5, help='total number of episodes to run')
-    parser.add_argument('--name', help='experiment name for wandb')
     # hyperparams
     parser.add_argument('--term-entropy-reg', type=float, default=0.05)
     parser.add_argument('--utterance-entropy-reg', type=float, default=0.001)
@@ -63,11 +62,15 @@ def parse_flags(argv):
     parser.add_argument('--testing', action='store_true', help='turn off learning; always pick argmax')
     parser.add_argument('--no-load', action='store_true')
     parser.add_argument('--no-save', action='store_true')
-    parser.add_argument('--name', type=str, default='', help='used for logfile and model naming')
+    parser.add_argument('--name',  help='used for logfile, model naming, and wandb')
     parser.add_argument('--logdir', type=str, default='logs')
     parser.add_argument('--model_dir', type=str, default='model_saves')
+    parser.add_argument('--savedir', type=str, default='.')
+    parser.add_argument('--wandb', action='store_true')
     args = parser.parse_args()
 
+    args.logdir = f'{args.savedir}/{args.logdir}'
+    args.model_dir = f'{args.savedir}/{args.model_dir}'
 
     job_id = os.environ.get('SLURM_ARRAY_JOB_ID', '')
     task_id = os.environ.get('SLURM_ARRAY_TASK_ID', '')
@@ -80,7 +83,6 @@ def parse_flags(argv):
     args.log_file = datetime.datetime.strftime(datetime.datetime.now(), args.log_file)
     args.model_file = '{}/{}_{}_%Y%m%d.dat'.format(args.model_dir, args.name, slurm_id)
     args.model_file = datetime.datetime.strftime(datetime.datetime.now(), args.model_file)
-    del args.__dict__['name']
 
     if ((FLAGS.force_masking_comm or FLAGS.force_utility_comm)
         and not FLAGS.linguistic):
