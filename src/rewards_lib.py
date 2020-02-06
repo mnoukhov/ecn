@@ -6,7 +6,7 @@ from absl import flags, logging
 
 FLAGS = flags.FLAGS
 
-def calc_rewards(t, s, term):
+def calc_rewards(t, s, term, agent):
     """ calcualate rewards for any games just finished
     it will calculate three reward values:
         - agent 1 (as % of its max),
@@ -20,7 +20,6 @@ def calc_rewards(t, s, term):
     possibly/probably
     """
 
-    agent = t % 2
     batch_size = term.size()[0]
     rewards_batch = torch.zeros(batch_size, 3).to(FLAGS.device)
     if t == 0:

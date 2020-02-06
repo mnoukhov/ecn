@@ -94,7 +94,8 @@ def run_episode(
     agent_models,
     batch_size,
     testing,
-    render=False):
+    render=False,
+    initial_agent=0):
     """
     turning testing on means, we disable stochasticity: always pick the argmax
     """
@@ -132,8 +133,6 @@ def run_episode(
               '          ',
               '{}   {}   {}'.format(*s.utilities[0][1].tolist()))
 
-    # initial_agent = np.random.choice([0,1])
-
     for t in range(FLAGS.max_timesteps):
         if FLAGS.linguistic:
             _prev_message = s.m_prev
@@ -145,8 +144,8 @@ def run_episode(
         else:
             _prev_proposal = torch.zeros(sieve.batch_size, 3, dtype=torch.int64, device=FLAGS.device)
 
-        agent = t % 2
-        # agent = (initial_agent + t) % 2
+        # agent = t % 2
+        agent = (initial_agent + t) % 2
         agent_model = agent_models[agent]
         (nodes, term_a, s.m_prev, this_proposal, _entropy_loss,
          _term_matches_argmax_count, _utt_matches_argmax_count, _utt_stochastic_draws,
@@ -157,6 +156,7 @@ def run_episode(
              prev_proposal=_prev_proposal,
              testing=testing,
          )
+
         entropy_loss_by_agent[agent] += _entropy_loss
         actions_by_timestep.append(nodes)
         term_matches_argmax_count += _term_matches_argmax_count
@@ -187,6 +187,7 @@ def run_episode(
             t=t,
             s=s,
             term=term_a,
+            agent=agent,
         )
         rewards[sieve.out_idxes] = new_rewards
         s.last_proposal = this_proposal
@@ -304,59 +305,73 @@ def run(args):
     prop_mask_count = np.array([0,0])
     while episode < args.episodes:
         render = (episode % args.render_every_episode == 0)
-        batch = generate_training_batch(batch_size=args.batch_size,
-                                        test_hashes=test_hashes,
-                                        random_state=train_r)
-        (actions, rewards, steps, alive_masks, entropy_loss_by_agent,
-         _term_matches_argmax_count, _num_policy_runs, _utt_matches_argmax_count, _utt_stochastic_draws,
-         _prop_matches_argmax_count, _prop_stochastic_draws,
-         _utt_mask_count, _prop_mask_count) = run_episode(
-             batch=batch,
-             agent_models=agent_models,
-             batch_size=args.batch_size,
-             render=render,
-             testing=args.testing)
-        term_matches_argmax_count += _term_matches_argmax_count
-        utt_matches_argmax_count += _utt_matches_argmax_count
-        utt_stochastic_draws += _utt_stochastic_draws
-        num_policy_runs += _num_policy_runs
-        prop_matches_argmax_count += _prop_matches_argmax_count
-        prop_stochastic_draws += _prop_stochastic_draws
-        utt_mask_count += _utt_mask_count
-        prop_mask_count += _prop_mask_count
+        split = 2 if FLAGS.randomize_first else 1
+        agent_losses = [0,0]
+        both_rewards = []
 
-        if not args.testing:
-            for i in range(2):
-                agent_opts[i].zero_grad()
-            reward_loss_by_agent = [0, 0]
-            baselined_rewards = rewards - baseline
-            rewards_by_agent = []
-            for i in range(2):
-                if FLAGS.prosocial:
-                    rewards_by_agent.append(baselined_rewards[:, 2])
-                else:
-                    rewards_by_agent.append(baselined_rewards[:, i])
-            sieve_playback = SievePlayback(alive_masks)
-            for t, global_idxes in sieve_playback:
-                agent = t % 2
-                if len(actions[t]) > 0:
-                    for action in actions[t]:
-                        _rewards = rewards_by_agent[agent]
-                        _reward = _rewards[global_idxes].float().contiguous().view(
-                            sieve_playback.batch_size, 1)
-                        #TODO find overflow
-                        _reward_loss = - (action * _reward)
-                        _reward_loss = _reward_loss.sum()
-                        reward_loss_by_agent[agent] += _reward_loss
-            for i in range(2):
-                loss = entropy_loss_by_agent[i] + reward_loss_by_agent[i]
-                loss.backward()
-                agent_opts[i].step()
+        for i in range(2):
+            agent_opts[i].zero_grad()
 
-        rewards_sum += rewards.detach().sum(0)
-        steps_sum += steps.sum()
-        baseline = 0.7 * baseline + 0.3 * rewards.mean(0)
-        count_sum += args.batch_size
+        for initial_agent in range(split):
+            batch = generate_training_batch(batch_size=args.batch_size // split,
+                                            test_hashes=test_hashes,
+                                            random_state=train_r)
+            (actions, rewards, steps, alive_masks, entropy_loss_by_agent,
+             _term_matches_argmax_count, _num_policy_runs, _utt_matches_argmax_count, _utt_stochastic_draws,
+             _prop_matches_argmax_count, _prop_stochastic_draws,
+             _utt_mask_count, _prop_mask_count) = run_episode(
+                 batch=batch,
+                 agent_models=agent_models,
+                 batch_size=args.batch_size // split,
+                 render=render,
+                 initial_agent=initial_agent,
+                 testing=args.testing)
+            term_matches_argmax_count += _term_matches_argmax_count
+            utt_matches_argmax_count += _utt_matches_argmax_count
+            utt_stochastic_draws += _utt_stochastic_draws
+            num_policy_runs += _num_policy_runs
+            prop_matches_argmax_count += _prop_matches_argmax_count
+            prop_stochastic_draws += _prop_stochastic_draws
+            utt_mask_count += _utt_mask_count
+            prop_mask_count += _prop_mask_count
+
+            if not args.testing:
+                reward_loss_by_agent = [0, 0]
+                baselined_rewards = rewards - baseline
+                rewards_by_agent = []
+                for i in range(2):
+                    if FLAGS.prosocial:
+                        rewards_by_agent.append(baselined_rewards[:, 2])
+                    else:
+                        rewards_by_agent.append(baselined_rewards[:, i])
+                sieve_playback = SievePlayback(alive_masks)
+                for t, global_idxes in sieve_playback:
+                    agent = (initial_agent + t) % 2
+                    if len(actions[t]) > 0:
+                        for action in actions[t]:
+                            _rewards = rewards_by_agent[agent]
+                            _reward = _rewards[global_idxes].float().contiguous().view(
+                                sieve_playback.batch_size, 1)
+                            #TODO find overflow
+                            _reward_loss = - (action * _reward)
+                            _reward_loss = _reward_loss.sum()
+                            reward_loss_by_agent[agent] += _reward_loss
+
+                for i in range(2):
+                    loss = entropy_loss_by_agent[i] + reward_loss_by_agent[i]
+                    loss.backward()
+
+            rewards_sum += rewards.detach().sum(0)
+            steps_sum += steps.sum()
+            count_sum += args.batch_size // split
+            both_rewards.append(rewards)
+
+
+        for i in range(2):
+            agent_opts[i].step()
+
+        rewards = torch.cat(both_rewards).detach()
+        baseline = 0.7 * baseline + 0.3 * rewards.mean(0).detach()
 
         if render:
             """
