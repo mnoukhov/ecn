@@ -29,6 +29,8 @@ flags.DEFINE_boolean('proposal', True, 'whether agents can send propoposal along
 flags.DEFINE_boolean('prosocial', True, 'whether agents share their rewards')
 
 # experiments
+flags.DEFINE_float('bias', None, 'level of agent competitiveness')
+flags.DEFINE_boolean('randomize_first', False, 'whether agent 1 always goes first')
 flags.DEFINE_boolean('utility_normalize', False, 'sum of an agent utilities is ~max_utility')
 flags.DEFINE_boolean('utility_nonzero', False, 'force min utility of 1 for every object')
 flags.DEFINE_enum('force_utility_comm', None, ['A', 'B', 'both'], 'force an agent to communicate its utilities')
@@ -67,6 +69,7 @@ def parse_flags(argv):
     parser.add_argument('--model_dir', type=str, default='model_saves')
     parser.add_argument('--savedir', type=str, default='.')
     parser.add_argument('--wandb', action='store_true')
+    parser.add_argument('--no-wandb', dest='wandb', action='store_false')
     args = parser.parse_args()
 
     args.logdir = f'{args.savedir}/{args.logdir}'
