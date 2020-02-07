@@ -1,14 +1,16 @@
 #!/bin/bash
 
 python src/main.py \
-    --name 'self-ling-masking' \
+    --name "self-ling-masking-seed$SEED" \
+    --savedir "$HOME" \
     --noprosocial \
     --noproposal \
     --linguistic \
-    --enable_cuda \
-    --term-entropy-reg 0.1 \
+    --term-entropy-reg 0.05 \
     --utterance-entropy-reg 0.001 \
-    --proposal-entropy-reg 0.005 \
-    --episodes 250000 \
+    --proposal-entropy-reg 0.05 \
+    --episodes 50000 \
     --force_masking_comm \
+    --wandb \
+    --seed $SEED \
     $@
