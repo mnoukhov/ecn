@@ -1,6 +1,6 @@
 # Experiments on Emergent Communication through Negotiation
 
-Extensions and experiments based on [Emergent Communication through Negotation](https://arxiv.org/pdf/1804.03980.pdf)
+Extensions and experiments based on [Emergent Communication through Negotation](https://arxiv.org/pdf/1804.03980.pdf).
 Code was initially built off of [Hugh Perkins' repo](https://github.com/ASAPPinc/emergent_comms_negotiation)
 
 ## Setup
@@ -48,3 +48,5 @@ The scripts define the hyperparameters for each experiment
 We run 5 seeds of every experiment and the plot the mean and 95% confidence interval over the seeds. Run the script with `--seed` for 5 different values (e.g. `0-4`) and log to `wandb`
 
 From `wandb`, download the `test_reward` for all 5 seeds into a `csv` for the corresponding experiment. Plot it using `plot_wandb_csv` in `notebooks/ECN.ipynb`
+
+If you're not using `wandb` and just want to plot the training graph for a `json` log, then use the `notebooks/plot_graphs.py` cli to generate a graph from a single log.
