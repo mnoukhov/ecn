@@ -3,3 +3,5 @@ matplotlib
 pytest
 absl-py
 wandb
+seaborn
+pandas
