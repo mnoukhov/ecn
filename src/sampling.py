@@ -1,7 +1,3 @@
-#TODO
-# create a dataset of utilities + pools instead of generating on the fly?
-# refactor by changing this to classes
-
 import torch
 import numpy as np
 from absl import flags

@@ -119,7 +119,6 @@ def run_episode(
     utt_mask = torch.zeros(2, batch_size, 3, dtype=torch.int64, device=FLAGS.device)
     prop_mask = torch.zeros(2, batch_size, 3, dtype=torch.int64, device=FLAGS.device)
 
-    # TODO change from list to just a tensor
     entropy_loss_by_agent = [
         torch.zeros(1, device=FLAGS.device),
         torch.zeros(1, device=FLAGS.device)
@@ -352,7 +351,6 @@ def run(args):
                             _rewards = rewards_by_agent[agent]
                             _reward = _rewards[global_idxes].float().contiguous().view(
                                 sieve_playback.batch_size, 1)
-                            #TODO find overflow
                             _reward_loss = - (action * _reward)
                             _reward_loss = _reward_loss.sum()
                             reward_loss_by_agent[agent] += _reward_loss
@@ -385,7 +383,6 @@ def run(args):
             test_utt_mask_count = np.array([0,0])
             test_prop_mask_count = np.array([0,0])
             for test_batch in test_batches:
-                # TODO this stuff isn't being used
                 (actions, test_rewards, steps, alive_masks, entropy_loss_by_agent,
                  _term_matches_argmax_count, _test_num_policy_runs, _utt_matches_argmax_count, _utt_stochastic_draws,
                  _prop_matches_argmax_count, _prop_stochastic_draws,
