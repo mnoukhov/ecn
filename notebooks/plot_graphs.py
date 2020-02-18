@@ -92,7 +92,7 @@ def plot(epochs, rewards, title=None, min_y=None, max_y=None,
         plt.ylabel('Normalized Reward')
     plt.legend(loc=legend_loc)
     if save:
-        plt.savefig('/home/mnoukhov/Downloads/{}.pdf'.format(save),
+        plt.savefig('./{}.pdf'.format(save),
                    format='pdf')
     else:
         plt.show()
