@@ -5,7 +5,7 @@ from absl import app
 from absl import flags
 from absl.flags import argparse_flags
 
-from ecn import run
+from src.ecn import run
 
 FLAGS = flags.FLAGS
 

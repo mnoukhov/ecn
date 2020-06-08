@@ -237,7 +237,7 @@ def run(args):
         wandb.init(project='ecn', name=args.name, dir=f'{args.savedir}')
         wandb.config.update(args)
         wandb.config.update(FLAGS)
-    flags_dict = {flag.name: flag.value for flag in FLAGS.flags_by_module_dict()['src/main.py']}
+    flags_dict = {flag.name: flag.value for flag in FLAGS.flags_by_module_dict()['main.py']}
     args_dict = args.__dict__
     pprint(args_dict)
     pprint(flags_dict)
