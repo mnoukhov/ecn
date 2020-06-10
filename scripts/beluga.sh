@@ -6,6 +6,7 @@
 #SBATCH --error=/home/noukhovm/scratch/slurm-logs/ecn.%A.%a.err
 #SBATCH --job-name=ecn
 #SBATCH --mem=8GB
+#SBATCH --gres=gpu:1
 #SBATCH --time=7:59:00
 
 module load python/3.7
