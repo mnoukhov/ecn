@@ -14,7 +14,7 @@ source env/bin/activate
 pip install -r requirement.txt
 ```
 
-Then set up `PYTHONPATH` variables to facilitate imports. Assuming you cloned the repo into `$HOME/ecn` you can use
+Optionally you can also set up `PYTHONPATH` variables to facilitate imports. Assuming you cloned the repo into `$HOME/ecn` you can use
 
 ```
 export PROJECT=$HOME/ecn
@@ -33,7 +33,7 @@ Use the scripts in `/scripts` to run the code. Each script name corresponds to t
 - `*-none-*` uses no communication channels
 - `*-ling-*` uses only the linguistic communication channel
 - `*-prop-*` uses only the proposal communication channel
-- `*-prop-*` uses both the proposal and linguistic communication channels
+- `*-both-*` uses both the proposal and linguistic communication channels
 - `*-masking` uses the masked linguistic channel, where agents learn a mask over their proposals and their linguistic utterance is simply the mask multiplied with their proposal
 
 
@@ -47,6 +47,6 @@ The scripts define the hyperparameters for each experiment
 ## Reproducing Graphs
 We run 5 seeds of every experiment and the plot the mean and 95% confidence interval over the seeds. Run the script with `--seed` for 5 different values (e.g. `0-4`) and log to `wandb`
 
-From `wandb`, download the `test_reward` for all 5 seeds into a `csv` for the corresponding experiment. Plot it using `plot_wandb_csv` in `notebooks/ECN.ipynb`
+From `wandb`, download the `test_reward` for all 5 seeds into a `csv` for the corresponding experiment. Plot it using `notebooks/plot_wandb.ipynb`
 
-If you're not using `wandb` and just want to plot the training graph for a `json` log, then use the `notebooks/plot_graphs.py` cli to generate a graph from a single log.
+If you're using logfiles instead of `wandb` use `notebooks/plot_logfile.ipynb`
