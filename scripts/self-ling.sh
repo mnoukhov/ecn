@@ -1,8 +1,7 @@
 #!/bin/bash
-
-python src/main.py \
+python main.py \
     --name "self-ling-seed$SEED" \
-    --savedir "$HOME" \
+    --savedir "$SCRATCH" \
     --noprosocial \
     --noproposal \
     --linguistic \
@@ -11,5 +10,7 @@ python src/main.py \
     --proposal-entropy-reg 0.05 \
     --episodes 50000 \
     --wandb \
+    --wandb-offline \
     --seed $SEED \
+    --device 'cuda' \
     $@
