@@ -132,14 +132,26 @@ def run_episode(
               '          ',
               '{}   {}   {}'.format(*s.utilities[0][1].tolist()))
 
+    current_A_proposal = torch.zeros(sieve.batch_size, 3, dtype=torch.int64, device=FLAGS.device)
+    prev_A_proposal = torch.zeros(sieve.batch_size, 3, dtype=torch.int64, device=FLAGS.device)
+    current_A_message = torch.zeros(sieve.batch_size, FLAGS.utt_max_length, dtype=torch.int64, device=FLAGS.device)
+    prev_A_message = torch.zeros(sieve.batch_size, FLAGS.utt_max_length, dtype=torch.int64, device=FLAGS.device)
+    current_A_term = torch.zeros(sieve.batch_size, 1, dtype=torch.uint8)
+
     for t in range(FLAGS.max_timesteps):
         if FLAGS.linguistic:
-            _prev_message = s.m_prev
+            if FLAGS.normal_form and t % 2 == 1:
+                _prev_message = prev_A_message
+            else:
+                _prev_message = s.m_prev
         else:
             _prev_message = torch.zeros(sieve.batch_size, 6, dtype=torch.int64, device=FLAGS.device)
 
         if FLAGS.proposal:
-            _prev_proposal = s.last_proposal
+            if FLAGS.normal_form and t % 2 == 1:
+                _prev_proposal = prev_A_proposal
+            else:
+                _prev_proposal = s.last_proposal
         else:
             _prev_proposal = torch.zeros(sieve.batch_size, 3, dtype=torch.int64, device=FLAGS.device)
 
@@ -169,10 +181,26 @@ def run_episode(
             utt_mask[agent][sieve.out_idxes] |= _utt_mask
             prop_mask[agent][sieve.out_idxes] |= _prop_mask
 
-        if FLAGS.proposal_termination:
+        if FLAGS.proposal_termination and not FLAGS.normal_form:
             term_a = torch.prod(this_proposal == _prev_proposal,
                                 dim=1,
                                 keepdim=True)
+        elif not FLAGS.proposal_termination and FLAGS.normal_form:
+            #TODO which proposal to use here?
+            if t % 2 == 1:
+                term_a = (term_a * current_A_term)
+            else:
+                current_A_term = term_a
+                term_a = torch.zeros((sieve.batch_size,1), dtype=torch.uint8, device=FLAGS.device)
+
+        elif FLAGS.proposal_termination and FLAGS.normal_form:
+            if t % 2 == 1:
+                term_a = torch.prod(this_proposal == current_A_proposal,
+                                    dim=1,
+                                    keepdim=True)
+            else:
+                term_a = torch.zeros((sieve.batch_size,1), dtype=torch.uint8, device=FLAGS.device)
+
 
         if render and sieve.out_idxes[0] == 0:
             render_action(
@@ -191,6 +219,13 @@ def run_episode(
         rewards[sieve.out_idxes] = new_rewards
         s.last_proposal = this_proposal
 
+        if FLAGS.normal_form and t % 2 == 0:
+            prev_A_proposal = current_A_proposal
+            current_A_proposal = this_proposal
+            prev_A_message = current_A_message
+            current_A_message = s.m_prev
+
+
         sieve.mark_dead(term_a)
         sieve.mark_dead(t + 1 >= s.N)
         alive_masks.append(sieve.alive_mask.clone())
@@ -199,6 +234,14 @@ def run_episode(
             break
 
         s.sieve_(sieve.alive_idxes)
+
+        if FLAGS.normal_form:
+            current_A_proposal = current_A_proposal[sieve.alive_idxes]
+            prev_A_proposal = prev_A_proposal[sieve.alive_idxes]
+            current_A_message = current_A_message[sieve.alive_idxes]
+            prev_A_message = prev_A_message[sieve.alive_idxes]
+
+
         sieve.self_sieve_()
 
     if render:
@@ -234,7 +277,13 @@ def run(args):
     - not save model
     """
     if args.wandb:
-        wandb.init(project='ecn', name=args.name, dir=f'{args.savedir}')
+        if args.wandb_offline:
+            os.environ["WANDB_MODE"] = "dryrun"
+
+        wandb.init(project='ecn',
+                   name=args.name,
+                   dir=f'{args.savedir}',
+                   group=args.wandb_group)
         wandb.config.update(args)
         wandb.config.update(FLAGS)
     flags_dict = {flag.name: flag.value for flag in FLAGS.flags_by_module_dict()['main.py']}
@@ -392,7 +441,7 @@ def run(args):
                      batch_size=args.batch_size,
                      render=True,
                      testing=True)
-                test_rewards_sum += test_rewards.sum(0).numpy()
+                test_rewards_sum += test_rewards.sum(0).cpu().numpy()
                 test_num_policy_runs += _test_num_policy_runs
                 test_utt_mask_count += _test_utt_mask_count
                 test_prop_mask_count += _test_prop_mask_count
@@ -438,7 +487,7 @@ def run(args):
                 'test_reward_A': (test_rewards_sum[0] / test_count_sum).item(),
                 'test_reward_B': (test_rewards_sum[1] / test_count_sum).item(),
                 'test_reward': (test_rewards_sum[2] / test_count_sum).item(),
-                'avg_steps': (steps_sum / count_sum).item(),
+                'avg_steps': torch.true_divide(steps_sum, count_sum).item(),
                 'games_sec': (count_sum / time_since_last),
                 'elapsed': time.time() - start_time,
                 'argmaxp_term': term_matches_argmax_count / num_policy_runs,

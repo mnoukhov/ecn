@@ -39,7 +39,7 @@ flags.DEFINE_boolean('force_masking_comm', False, 'force agents to communicate b
 flags.DEFINE_boolean('random_start', False, 'randomly choose which agent starts the negotiation')
 flags.DEFINE_boolean('proposal_termination', False, 'term policy does nothing, to terminate agent must propose the same as the previous proposal')
 flags.DEFINE_boolean('zero_sum_reward', False, 'R_A = r_A - r_B')
-
+flags.DEFINE_boolean('normal_form', False, 'both agents act simultaneously')
 
 def parse_flags(argv):
     parser = argparse_flags.ArgumentParser()
@@ -70,6 +70,8 @@ def parse_flags(argv):
     parser.add_argument('--savedir', type=str, default='.')
     parser.add_argument('--wandb', action='store_true')
     parser.add_argument('--no-wandb', dest='wandb', action='store_false')
+    parser.add_argument('--wandb-offline', action='store_true')
+    parser.add_argument('--wandb-group', type=str, 'used for grouping runs')
     args = parser.parse_args()
 
     args.logdir = f'{args.savedir}/{args.logdir}'

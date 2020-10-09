@@ -21,17 +21,21 @@ export PYTHONUNBUFFERED=1
 mkdir -p $SLURM_TMPDIR/wandb
 
 python main.py \
-    --name 'self-both-seed$SLURM_ARRAY_TASK_ID' \
+    --name "self-ling-propterm-seed$SLURM_ARRAY_TASK_ID" \
     --savedir "$SLURM_TMPDIR/wandb" \
     --noprosocial \
-    --proposal \
+    --noproposal \
     --linguistic \
-    --enable_cuda \
     --term-entropy-reg 0.05 \
     --utterance-entropy-reg 0.001 \
     --proposal-entropy-reg 0.05 \
     --episodes 50000 \
-    --seed $SLURM_ARRAY_TASK_ID
+    --seed $SLURM_ARRAY_TASK_ID \
+    --device 'cuda' \
+    --wandb \
+    --wandb-offline \
+    --wandb-group "ecn-$SLURM_JOB_ID" \
+    --proposal_termination
 
 rsync -a $SLURM_TMPDIR/wandb/ $SCRATCH/ecn/wandb/
 rm -rf $SLURM_TMPDIR/env
