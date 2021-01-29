@@ -1,8 +1,7 @@
 #!/bin/bash
-
 python src/main.py \
     --name "self-prop-seed$SEED" \
-    --savedir "$HOME" \
+    --savedir "$SCRATCH" \
     --noprosocial \
     --proposal \
     --nolinguistic \
@@ -11,5 +10,6 @@ python src/main.py \
     --proposal-entropy-reg 0.05 \
     --episodes 50000 \
     --wandb \
+    --wandb-offline \
     --seed $SEED \
     $@

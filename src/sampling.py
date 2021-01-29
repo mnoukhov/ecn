@@ -63,8 +63,11 @@ def sample_utility(batch_size,
 def sample_N(batch_size,
              max_timesteps,
              random_state=np.random):
-    N = random_state.poisson(7, batch_size)
-    N = np.clip(N, 4, max_timesteps)
+    if FLAGS.normal_form:
+        N = np.full(batch_size, 8)
+    else:
+        N = random_state.poisson(7, batch_size)
+        N = np.clip(N, 4, max_timesteps)
     return N
 
 
