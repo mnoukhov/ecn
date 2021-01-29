@@ -1,7 +1,8 @@
-# Experiments on Emergent Communication through Negotiation
+# Emergent Communication under Competition (AAMAS 2021) experiments on the negotiation game
 
-Extensions and experiments based on [Emergent Communication through Negotation](https://arxiv.org/pdf/1804.03980.pdf).
-Code was initially built off of [Hugh Perkins' repo](https://github.com/ASAPPinc/emergent_comms_negotiation)
+Experiments from the paper [Emergent Communication under Competition (AAMAS 2021)](https://arxiv.org/abs/2101.10276) on the negotiation game setup of [Emergent Communication through Negotation (Cao et al, 2018)](https://arxiv.org/pdf/1804.03980.pdf). Code was initially built off of [Hugh Perkins' repo](https://github.com/ASAPPinc/emergent_comms_negotiation)
+
+For code relating to the biased circular sender-receiver game see [here](https://github.com/mnoukhov/emergent-compete)
 
 ## Setup
 ### Requirements
