@@ -71,7 +71,7 @@ def parse_flags(argv):
     parser.add_argument('--wandb', action='store_true')
     parser.add_argument('--no-wandb', dest='wandb', action='store_false')
     parser.add_argument('--wandb-offline', action='store_true')
-    parser.add_argument('--wandb-group', type=str, 'used for grouping runs')
+    parser.add_argument('--wandb-group', type=str, help='used for grouping runs')
     args = parser.parse_args()
 
     args.logdir = f'{args.savedir}/{args.logdir}'
